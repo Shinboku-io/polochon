@@ -1,0 +1,21 @@
+<Project>
+  <PropertyGroup>
+    <!-- Target Framework -->
+    <TargetFramework>net10.0</TargetFramework>
+    
+    <!-- Common build properties -->
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    
+    <!-- Code Analysis -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <!-- StyleCop Analyzers -->
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
+    
+    <!-- SonarQube Analyzers -->
+    <PackageReference Include="SonarAnalyzer.CSharp" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

@@ -14,15 +14,12 @@ This is the **open-source Shinboku Polochon kernel library** repository.
 ```
 kernel/
 ├── src/
-│   ├── Shinboku.Polochon.Contracts/    # Shared interfaces and DTOs
-│   ├── Shinboku.Polochon.Domain/       # Domain primitives and base classes
-│   ├── Shinboku.Polochon.Application/  # Application layer abstractions
-│   ├── Shinboku.Polochon.Infrastructure/ # Infrastructure contracts
-│   └── Shinboku.Polochon/              # Core kernel library
+│   ├── Polochon.Abstractions/    # Shared interfaces and DTOs
+│   └── Polochon/                 # Core kernel library
 ├── tests/
-│   ├── UnitTests/                      # Unit tests for kernel components
-│   ├── IntegrationTests/              # Integration tests
-│   └── ContractTests/                  # Contract validation tests
+│   ├── Polochon.Tests/UnitTests/                      # Unit tests for kernel components
+│   ├── Polochon.Tests/IntegrationTests/              # Integration tests
+│   └── Polochon.ContractTests/                  # Contract validation tests
 ├── samples/
 │   ├── ConsoleApp/                     # Basic usage samples
 │   ├── WebApi/                         # Web API integration sample
@@ -58,18 +55,15 @@ kernel/
 
 ### External Dependencies
 
-- **.NET**: 8.0+
+- **.NET**: 10.0+
 - **NuGet**: Standard package manager
 - **Testing**: xUnit/NUnit for tests
 
 ### Internal Dependencies
 
 - **Package hierarchy**: 
-  - `Shinboku.Polochon.Contracts` (no dependencies)
-  - `Shinboku.Polochon.Domain` (depends on Contracts)
-  - `Shinboku.Polochon.Application` (depends on Domain, Contracts)
-  - `Shinboku.Polochon.Infrastructure` (depends on Application, Domain, Contracts)
-  - `Shinboku.Polochon` (meta-package referencing all above)
+  - `Polochon.Abstractions` (no dependencies)
+  - `Polochon` (meta-package referencing all above)
 
 ## Build & Test Directives
 
@@ -97,7 +91,7 @@ This repository is part of a multi-repo workspace. Use workspace-level Taskfile.
 ### Versioning & Packaging
 
 - **Version scheme**: Semantic Versioning 2.0.0
-- **Package ID pattern**: `Shinboku.Polochon[.Submodule]`
+- **Package ID pattern**: `Polochon[.Submodule]`
 - **CI/CD**: Automated package publishing on release tags
 - **Tag pattern**: `v<major>.<minor>.<patch>` (e.g., `v1.0.0`)
 
@@ -167,11 +161,8 @@ This repository is part of a multi-repo workspace. Use workspace-level Taskfile.
 ### Package Naming
 
 ```
-Shinboku.Polochon                    # Meta-package (depends on all)
-Shinboku.Polochon.Contracts          # Interfaces and DTOs
-Shinboku.Polochon.Domain             # Domain primitives
-Shinboku.Polochon.Application        # Application patterns
-Shinboku.Polochon.Infrastructure     # Infrastructure abstractions
+Polochon                    # Meta-package (depends on all)
+Polochon.Abstractions          # Interfaces and DTOs
 ```
 
 ### Package Contents

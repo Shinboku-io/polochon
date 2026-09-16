@@ -10,18 +10,55 @@ namespace Polochon.Mediation
     /// </summary>
     public static class ServiceRegister
     {
+        internal static IServiceCollection AddDispatcher(this IServiceCollection services, Type[] handlerTypes)
+        {
+            var queryWrappers = new Dictionary<Type, IMessageHandlerWrapper>();
+            var commandWrappers = new Dictionary<Type, IMessageHandlerWrapper>();
+            var notificationWrappers = new Dictionary<Type, INotificationHandlerWrapper>();
+            RegisterWrappersAndTypes(services, handlerTypes, queryWrappers, commandWrappers, notificationWrappers);
+
+            var registry = new DispatcherRegistry(
+                queryWrappers.ToFrozenDictionary(),
+                commandWrappers.ToFrozenDictionary(),
+                notificationWrappers.ToFrozenDictionary());
+
+            _ = services.AddSingleton(registry);
+            _ = services.AddScoped<PolochonDispatcher>();
+            services.AddScoped<IPolochonDispatcher>(sp => sp.GetRequiredService<PolochonDispatcher>());
+            //services.AddScoped<IPublisher>(sp => sp.GetRequiredService<Dispatcher>());
+
+            return services;
+        }
 
         /// <summary>
         /// Registers the dispatcher and scans the given assembly for IRequestHandler and
         /// INotificationHandler implementations. Wrappers are built once and frozen.
         /// </summary>
+        /// <param name="services">The service collection to register with.</param>
+        /// <param name="assembly">The assembly to scan for handler implementations.</param>
         public static IServiceCollection AddDispatcher(this IServiceCollection services, Assembly assembly)
         {
             var queryWrappers = new Dictionary<Type, IMessageHandlerWrapper>();
             var commandWrappers = new Dictionary<Type, IMessageHandlerWrapper>();
             var notificationWrappers = new Dictionary<Type, INotificationHandlerWrapper>();
+            RegisterWrappersAndTypes(services, assembly.GetTypes(), queryWrappers, commandWrappers, notificationWrappers);
 
-            foreach (var type in assembly.GetTypes())
+            var registry = new DispatcherRegistry(
+                queryWrappers.ToFrozenDictionary(),
+                commandWrappers.ToFrozenDictionary(),
+                notificationWrappers.ToFrozenDictionary());
+
+            _ = services.AddSingleton(registry);
+            _ = services.AddScoped<PolochonDispatcher>();
+            services.AddScoped<IPolochonDispatcher>(sp => sp.GetRequiredService<PolochonDispatcher>());
+            //services.AddScoped<IPublisher>(sp => sp.GetRequiredService<Dispatcher>());
+
+            return services;
+        }
+
+        private static void RegisterWrappersAndTypes(IServiceCollection services, Type[] types, Dictionary<Type, IMessageHandlerWrapper> queryWrappers, Dictionary<Type, IMessageHandlerWrapper> commandWrappers, Dictionary<Type, INotificationHandlerWrapper> notificationWrappers)
+        {
+            foreach (var type in types)
             {
                 if (type.IsAbstract || type.IsInterface) continue;
 
@@ -40,7 +77,7 @@ namespace Polochon.Mediation
 
                         if (!queryWrappers.ContainsKey(requestType))
                         {
-                            var wrapperType = typeof(MessageHandlerWrapper<,>)
+                            var wrapperType = typeof(QueryHandlerWrapper<,>)
                                 .MakeGenericType(requestType, responseType);
                             queryWrappers[requestType] =
                                 (IMessageHandlerWrapper)Activator.CreateInstance(wrapperType)!;
@@ -56,7 +93,7 @@ namespace Polochon.Mediation
 
                         if (!commandWrappers.ContainsKey(requestType))
                         {
-                            var wrapperType = typeof(MessageHandlerWrapper<,>)
+                            var wrapperType = typeof(CommandHandlerWrapper<,>)
                                 .MakeGenericType(requestType, responseType);
                             commandWrappers[requestType] =
                                 (IMessageHandlerWrapper)Activator.CreateInstance(wrapperType)!;
@@ -75,20 +112,12 @@ namespace Polochon.Mediation
                                 (INotificationHandlerWrapper)Activator.CreateInstance(wrapperType)!;
                         }
                     }
+                    else if (def == typeof(IMessageValidator<,>))
+                    {
+                        _ = services.AddScoped(iface, type);
+                    }
                 }
             }
-
-            var registry = new DispatcherRegistry(
-                queryWrappers.ToFrozenDictionary(),
-                commandWrappers.ToFrozenDictionary(),
-                notificationWrappers.ToFrozenDictionary());
-
-            _ = services.AddSingleton(registry);
-            _ = services.AddScoped<PolochonDispatcher>();
-            services.AddScoped<IPolochonDispatcher>(sp => sp.GetRequiredService<PolochonDispatcher>());
-            //services.AddScoped<IPublisher>(sp => sp.GetRequiredService<Dispatcher>());
-
-            return services;
         }
 
         /// <summary>

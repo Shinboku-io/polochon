@@ -17,10 +17,19 @@ namespace Polochon.Mediation
             NotificationWrappers = notificationWrappers;
         }
 
+        /// <summary>
+        /// Gets the query handlers registry.
+        /// </summary>
         public FrozenDictionary<Type, IMessageHandlerWrapper> QueryWrappers { get; }
 
+        /// <summary>
+        /// Gets the command handlers registry.
+        /// </summary>
         public FrozenDictionary<Type, IMessageHandlerWrapper> CommandWrappers { get; }
 
+        /// <summary>
+        /// Gets the notification handlers registry.
+        /// </summary>
         public FrozenDictionary<Type, INotificationHandlerWrapper> NotificationWrappers { get; }
     }
 }

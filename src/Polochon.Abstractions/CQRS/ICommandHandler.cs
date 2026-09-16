@@ -30,6 +30,6 @@ namespace Polochon.Abstractions.CQRS
         /// <param name="command">The command to handle.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The command response.</returns>
-        Task<TResponse> HandleAsync(TCommand command, CancellationToken cancellationToken = default);
+        ValueTask<TResponse> HandleAsync(TCommand command, CancellationToken cancellationToken = default);
     }
 }

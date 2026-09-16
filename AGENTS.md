@@ -157,6 +157,13 @@ This repository is part of a multi-repo workspace. Use workspace-level Taskfile.
 - **Test Naming**: Test names must use PascalCase without underscores (e.g., `GetByIdWhenIdExistsReturnsEntity`)
 - **Assertions**: Prefer raw assertions or use Shouldly
 
+### Test Creation Rules
+
+- **Ask before editing outside test library**: When creating tests, always ask for explicit permission before editing code outside of the test library. Test code should be isolated and not require modifications to production code.
+- **Tests must pass**: When creating tests, do not consider the work done until all tests are passing. Partial test implementations or failing tests are not acceptable.
+- **Revert on regression**: When editing existing test code, if tests that were previously passing begin to fail after the edit, immediately revert the changes or ask for guidance. Never leave tests in a failing state.
+- **No base types in DI constructors**: Do not put any base type or collection of base type (like `string` or `List<string>`) on constructors for types that are created by dependency injection.
+
 ### Public API Standards
 
 - **Documentation**: All public types and members must have XML documentation

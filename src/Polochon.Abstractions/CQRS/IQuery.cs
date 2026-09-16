@@ -4,7 +4,7 @@ namespace Polochon.Abstractions.CQRS
     /// Marker interface for query requests in CQRS pattern.
     /// </summary>
     /// <typeparam name="TResponse">The type of the query response.</typeparam>
-    public interface IQuery<out TResponse> : Mediator.IQuery<TResponse>, Mediator.IRequest<TResponse>
+    public interface IQuery<out TResponse> : IMessage<TResponse>
     {
     }
 }

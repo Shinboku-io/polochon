@@ -9,7 +9,7 @@ namespace Polochon.Tests.TestModule.Queries
     /// </summary>
     public partial class TestQueryHandler : IQueryHandler<TestQuery, TestQueryResult>
     {
-        public async ValueTask<TestQueryResult> Handle(TestQuery query, CancellationToken cancellationToken)
+        public async ValueTask<TestQueryResult> HandleAsync(TestQuery query, CancellationToken cancellationToken)
         {
             await Task.Delay(10, cancellationToken).ConfigureAwait(false);
 

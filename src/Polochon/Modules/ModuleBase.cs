@@ -3,7 +3,7 @@ using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Polochon.Abstractions.CQRS;
 using Polochon.Abstractions.Modules;
-using Polochon.Mediator;
+using Polochon.Mediation;
 
 namespace Polochon.Modules
 {
@@ -48,18 +48,18 @@ namespace Polochon.Modules
         /// <summary>
         /// Gets the module's mediator instance.
         /// </summary>
-        public IPolochonMediator Mediator => ServiceProvider.GetRequiredService<IPolochonMediator>();
+        public IPolochonDispatcher Mediator => ServiceProvider.GetRequiredService<IPolochonDispatcher>();
 
         /// <inheritdoc/>
-        public Task<TResponse> SendQueryAsync<TResponse>(IQuery<TResponse> query, CancellationToken cancellationToken = default)
+        public ValueTask<TResponse> SendQueryAsync<TResponse>(IQuery<TResponse> query, CancellationToken cancellationToken = default)
             => Mediator.SendQueryAsync<TResponse>(query, cancellationToken);
 
         /// <inheritdoc/>
-        public Task SendCommandAsync(ICommand command, CancellationToken cancellationToken = default)
+        public ValueTask SendCommandAsync(ICommand command, CancellationToken cancellationToken = default)
             => Mediator.SendCommandAsync(command, cancellationToken);
 
         /// <inheritdoc/>
-        public Task<TResponse> SendCommandAsync<TResponse>(ICommand<TResponse> command, CancellationToken cancellationToken = default)
+        public ValueTask<TResponse> SendCommandAsync<TResponse>(ICommand<TResponse> command, CancellationToken cancellationToken = default)
             => Mediator.SendCommandAsync<TResponse>(command, cancellationToken);
 
         /// <summary>
@@ -69,19 +69,7 @@ namespace Polochon.Modules
         /// <param name="services">The service collection to configure.</param>
         protected virtual void ConfigureServices([DisallowNull] IServiceCollection services, IReadOnlyList<Assembly> types)
         {
-            if (!TryConfigureGeneratedMediatorServices(services, types))
-            {
-                // Register the Mediator library and its source-generated handlers
-                _ = services.AddMediator((global::Mediator.MediatorOptions options) =>
-                {
-                    options.GenerateTypesAsInternal = true;
-                    options.ServiceLifetime = ServiceLifetime.Singleton;
-                    options.Assemblies = types.Select(x => (global::Mediator.AssemblyReference)x).ToList().AsReadOnly();
-                });
-            }
-
-            // Register our Polochon mediator adapter
-            services.AddSingleton<IPolochonMediator, PolochonMediator>();
+            services.AddDispatcher(types.First());
         }
 
         /// <summary>
@@ -174,7 +162,7 @@ namespace Polochon.Modules
             where T : notnull
             => ServiceProvider.GetRequiredService<T>();
 
-     
+
         /// <inheritdoc/>
         public void Dispose()
         {

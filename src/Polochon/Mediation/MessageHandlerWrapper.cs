@@ -3,20 +3,20 @@ using Polochon.Abstractions.CQRS;
 
 namespace Polochon.Mediation
 {
-    internal abstract class MessageHandlerBase;
+    internal interface IMessageHandlerWrapper;
 
-    internal abstract class MessageHandlerBase<TResponse> : MessageHandlerBase
+    internal interface IMessageHandlerWrapper<TResponse> : IMessageHandlerWrapper
     {
-        public abstract ValueTask<TResponse> HandleAsync(
+        ValueTask<TResponse> HandleAsync(
             IMessage<TResponse> request,
             IServiceProvider provider,
             CancellationToken cancellationToken);
     }
 
-    internal sealed class MessageHandlerWrapper<TRequest, TResponse> : MessageHandlerBase<TResponse>
+    internal sealed class MessageHandlerWrapper<TRequest, TResponse> : IMessageHandlerWrapper<TResponse>
         where TRequest : IMessage<TResponse>
     {
-        public override ValueTask<TResponse> HandleAsync(
+        public ValueTask<TResponse> HandleAsync(
             IMessage<TResponse> request,
             IServiceProvider provider,
             CancellationToken cancellationToken)

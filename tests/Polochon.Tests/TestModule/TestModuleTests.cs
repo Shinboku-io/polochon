@@ -1,4 +1,3 @@
-using Polochon.Abstractions.CQRS;
 using Polochon.Abstractions.Modules;
 using Polochon.Tests.TestModule.Queries;
 using Xunit;

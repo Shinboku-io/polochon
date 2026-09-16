@@ -22,6 +22,7 @@ namespace Polochon.Modules
         /// Initializes a new instance of the <see cref="ModuleBase"/> class.
         /// </summary>
         /// <param name="moduleName">The name of the module.</param>
+        /// <param name="types">Assemblies where business logic for mediation is defined. For mediation configuration.</param>
         protected ModuleBase(string moduleName, Assembly[] types)
         {
             Name = moduleName;
@@ -67,6 +68,7 @@ namespace Polochon.Modules
         /// Override this method to register module-specific services.
         /// </summary>
         /// <param name="services">The service collection to configure.</param>
+        /// <param name="types">Assemblies where business logic for mediation is defined. For mediation configuration.</param>
         protected virtual void ConfigureServices([DisallowNull] IServiceCollection services, IReadOnlyList<Assembly> types)
         {
             services.AddDispatcher(types.First());

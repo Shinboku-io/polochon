@@ -114,12 +114,12 @@ This repository is part of a multi-repo workspace. Use workspace-level Taskfile.
 ### Code Style
 
 - **Language**: C# 12+
-- **Framework**: .NET 8+
+- **Framework**: .NET 10+
 - **Formatting**: Follow .editorconfig rules (inherited from workspace)
 - **Naming**: 
   - PascalCase for public types and members
   - camelCase for parameters and local variables
-  - _camelCase for private fields
+  - camelCase for private fields
   - I prefix for interfaces
 - **Async**: Use async/await pattern throughout
 - **Nullability**: Enable nullable reference types
@@ -148,6 +148,14 @@ This repository is part of a multi-repo workspace. Use workspace-level Taskfile.
 - **Integration tests**: Validate package interactions
 - **Contract tests**: Ensure backward compatibility
 - **Sample validation**: Samples must build and run successfully
+
+### Test Writing Directives
+
+- **Testing Framework**: xUnit
+- **Mocking Framework**: NSubstitute
+- **Fact Attribute**: All test methods must use `[Fact(DisplayName = "...")]` with a descriptive display name
+- **Test Naming**: Test names must use PascalCase without underscores (e.g., `GetByIdWhenIdExistsReturnsEntity`)
+- **Assertions**: Prefer raw assertions or use Shouldly
 
 ### Public API Standards
 

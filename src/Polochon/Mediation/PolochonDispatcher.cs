@@ -45,10 +45,7 @@ namespace Polochon.Mediation
 
         private readonly DispatcherRegistry registry;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PolochonDispatcher"/> class.
-        /// </summary>
-        /// <param name="mediator">The underlying Mediator instance.</param>
+
         public PolochonDispatcher(
             IServiceProvider provider,
             DispatcherRegistry registry)
@@ -62,14 +59,14 @@ namespace Polochon.Mediation
         {
             ArgumentNullException.ThrowIfNull(query);
 
-            if (!registry.RequestWrappers.TryGetValue(query.GetType(), out var wrapper))
+            if (!registry.QueryWrappers.TryGetValue(query.GetType(), out var wrapper))
             {
                 throw new InvalidOperationException(
                     $"No handler registered for request type '{query.GetType().FullName}'.");
             }
 
             // Reference-type cast - cheap, no boxing.
-            return await ((MessageHandlerBase<TResponse>)wrapper).HandleAsync(query, provider, cancellationToken);
+            return await ((IMessageHandlerWrapper<TResponse>)wrapper).HandleAsync(query, provider, cancellationToken);
         }
 
         /// <inheritdoc/>
@@ -77,14 +74,14 @@ namespace Polochon.Mediation
         {
             ArgumentNullException.ThrowIfNull(command);
 
-            if (!registry.RequestWrappers.TryGetValue(command.GetType(), out var wrapper))
+            if (!registry.CommandWrappers.TryGetValue(command.GetType(), out var wrapper))
             {
                 throw new InvalidOperationException(
                     $"No handler registered for request type '{command.GetType().FullName}'.");
             }
 
             // Reference-type cast - cheap, no boxing.
-            await ((MessageHandlerBase<Unit>)wrapper).HandleAsync(command, provider, cancellationToken);
+            _ = await ((IMessageHandlerWrapper<Unit>)wrapper).HandleAsync(command, provider, cancellationToken);
         }
 
         /// <inheritdoc/>
@@ -92,14 +89,14 @@ namespace Polochon.Mediation
         {
             ArgumentNullException.ThrowIfNull(command);
 
-            if (!registry.RequestWrappers.TryGetValue(command.GetType(), out var wrapper))
+            if (!registry.CommandWrappers.TryGetValue(command.GetType(), out var wrapper))
             {
                 throw new InvalidOperationException(
                     $"No handler registered for request type '{command.GetType().FullName}'.");
             }
 
             // Reference-type cast - cheap, no boxing.
-            return await ((MessageHandlerBase<TResponse>)wrapper).HandleAsync(command, provider, cancellationToken);
+            return await ((IMessageHandlerWrapper<TResponse>)wrapper).HandleAsync(command, provider, cancellationToken);
         }
     }
 }

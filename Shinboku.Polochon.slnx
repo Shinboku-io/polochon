@@ -1,6 +1,5 @@
 <Solution>
   <Project Path="src/Polochon.Abstractions/Polochon.Abstractions.csproj" Id="7a93c7cb-f2c8-44c5-bbdd-1cb422b438c0" />
-  <Project Path="src/Polochon.SourceGenerator/Polochon.SourceGenerator.csproj" />
   <Project Path="src/Polochon/Polochon.csproj" Id="5f4bf216-8095-4923-926a-8e1218a96e31" />
   <Project Path="tests/Polochon.Tests/Polochon.Tests.csproj" Id="c528eceb-4acc-4afd-a560-8247cf3eaa8e" />
 </Solution>

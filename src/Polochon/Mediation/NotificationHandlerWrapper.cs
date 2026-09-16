@@ -3,18 +3,18 @@ using Polochon.Abstractions.CQRS;
 
 namespace Polochon.Mediation
 {
-    internal abstract class NotificationHandlerBase
+    internal interface INotificationHandlerWrapper
     {
-        public abstract ValueTask Handle(
+        ValueTask HandleAsync(
             object notification,
             IServiceProvider provider,
             CancellationToken cancellationToken);
     }
 
-    internal sealed class NotificationHandlerWrapper<TNotification> : NotificationHandlerBase
+    internal sealed class NotificationHandlerWrapper<TNotification> : INotificationHandlerWrapper
         where TNotification : INotification
     {
-        public override async ValueTask Handle(
+        public async ValueTask HandleAsync(
             object notification,
             IServiceProvider provider,
             CancellationToken cancellationToken)

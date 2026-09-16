@@ -5,6 +5,9 @@ using Polochon.Abstractions.CQRS;
 
 namespace Polochon.Mediation
 {
+    /// <summary>
+    /// Provides extension methods for registering the Polochon dispatcher and related services.
+    /// </summary>
     public static class ServiceRegister
     {
 
@@ -14,8 +17,9 @@ namespace Polochon.Mediation
         /// </summary>
         public static IServiceCollection AddDispatcher(this IServiceCollection services, Assembly assembly)
         {
-            var requestWrappers = new Dictionary<Type, MessageHandlerBase>();
-            var notificationWrappers = new Dictionary<Type, NotificationHandlerBase>();
+            var queryWrappers = new Dictionary<Type, IMessageHandlerWrapper>();
+            var commandWrappers = new Dictionary<Type, IMessageHandlerWrapper>();
+            var notificationWrappers = new Dictionary<Type, INotificationHandlerWrapper>();
 
             foreach (var type in assembly.GetTypes())
             {
@@ -26,7 +30,7 @@ namespace Polochon.Mediation
                     if (!iface.IsGenericType) continue;
                     var def = iface.GetGenericTypeDefinition();
 
-                    if (def == typeof(IMessageHandler<,>))
+                    if (def == typeof(IQueryHandler<,>))
                     {
                         _ = services.AddScoped(iface, type);
 
@@ -34,12 +38,28 @@ namespace Polochon.Mediation
                         var requestType = args[0];
                         var responseType = args[1];
 
-                        if (!requestWrappers.ContainsKey(requestType))
+                        if (!queryWrappers.ContainsKey(requestType))
                         {
                             var wrapperType = typeof(MessageHandlerWrapper<,>)
                                 .MakeGenericType(requestType, responseType);
-                            requestWrappers[requestType] =
-                                (MessageHandlerBase)Activator.CreateInstance(wrapperType)!;
+                            queryWrappers[requestType] =
+                                (IMessageHandlerWrapper)Activator.CreateInstance(wrapperType)!;
+                        }
+                    }
+                    else if (def == typeof(ICommandHandler<,>))
+                    {
+                        _ = services.AddScoped(iface, type);
+
+                        var args = iface.GetGenericArguments();
+                        var requestType = args[0];
+                        var responseType = args[1];
+
+                        if (!commandWrappers.ContainsKey(requestType))
+                        {
+                            var wrapperType = typeof(MessageHandlerWrapper<,>)
+                                .MakeGenericType(requestType, responseType);
+                            commandWrappers[requestType] =
+                                (IMessageHandlerWrapper)Activator.CreateInstance(wrapperType)!;
                         }
                     }
                     else if (def == typeof(INotificationHandler<>))
@@ -52,14 +72,15 @@ namespace Polochon.Mediation
                             var wrapperType = typeof(NotificationHandlerWrapper<>)
                                 .MakeGenericType(notificationType);
                             notificationWrappers[notificationType] =
-                                (NotificationHandlerBase)Activator.CreateInstance(wrapperType)!;
+                                (INotificationHandlerWrapper)Activator.CreateInstance(wrapperType)!;
                         }
                     }
                 }
             }
 
             var registry = new DispatcherRegistry(
-                requestWrappers.ToFrozenDictionary(),
+                queryWrappers.ToFrozenDictionary(),
+                commandWrappers.ToFrozenDictionary(),
                 notificationWrappers.ToFrozenDictionary());
 
             _ = services.AddSingleton(registry);
@@ -73,6 +94,8 @@ namespace Polochon.Mediation
         /// <summary>
         /// Registers an open-generic pipeline behavior. Order of registration is order of execution.
         /// </summary>
+        /// <param name="services">The service collection to register with.</param>
+        /// <param name="openGenericBehaviorType">The open-generic pipeline behavior type.</param>
         public static IServiceCollection AddPipelineBehavior(
             this IServiceCollection services,
             Type openGenericBehaviorType)

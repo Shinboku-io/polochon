@@ -1,9 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-
+    <!-- Inherits from kernel/Directory.Build.props -->
   </PropertyGroup>
+  
   <ItemGroup>
-    
+    <!-- Add technical abstractions here -->
   </ItemGroup>
 </Project>

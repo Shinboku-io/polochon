@@ -1,10 +1,9 @@
-
 namespace Polochon.Abstractions.CQRS
 {
     /// <summary>
     /// Marker interface for command requests in CQRS pattern.
     /// </summary>
-    public interface ICommand : IMessage
+    public interface ICommand : ICommand<Unit>
     {
     }
 

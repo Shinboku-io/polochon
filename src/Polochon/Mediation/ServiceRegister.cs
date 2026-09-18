@@ -12,20 +12,11 @@ namespace Polochon.Mediation
     {
         internal static IServiceCollection AddDispatcher(this IServiceCollection services, Type[] handlerTypes)
         {
-            var queryWrappers = new Dictionary<Type, IMessageHandlerWrapper>();
-            var commandWrappers = new Dictionary<Type, IMessageHandlerWrapper>();
-            var notificationWrappers = new Dictionary<Type, INotificationHandlerWrapper>();
-            RegisterWrappersAndTypes(services, handlerTypes, queryWrappers, commandWrappers, notificationWrappers);
-
-            var registry = new DispatcherRegistry(
-                queryWrappers.ToFrozenDictionary(),
-                commandWrappers.ToFrozenDictionary(),
-                notificationWrappers.ToFrozenDictionary());
+            var registry = RegisterWrappersAndTypes(services, handlerTypes);
 
             _ = services.AddSingleton(registry);
             _ = services.AddScoped<PolochonDispatcher>();
-            services.AddScoped<IPolochonDispatcher>(sp => sp.GetRequiredService<PolochonDispatcher>());
-            //services.AddScoped<IPublisher>(sp => sp.GetRequiredService<Dispatcher>());
+            _ = services.AddScoped<IPolochonDispatcher>(sp => sp.GetRequiredService<PolochonDispatcher>());
 
             return services;
         }
@@ -38,26 +29,25 @@ namespace Polochon.Mediation
         /// <param name="assembly">The assembly to scan for handler implementations.</param>
         public static IServiceCollection AddDispatcher(this IServiceCollection services, Assembly assembly)
         {
-            var queryWrappers = new Dictionary<Type, IMessageHandlerWrapper>();
-            var commandWrappers = new Dictionary<Type, IMessageHandlerWrapper>();
-            var notificationWrappers = new Dictionary<Type, INotificationHandlerWrapper>();
-            RegisterWrappersAndTypes(services, assembly.GetTypes(), queryWrappers, commandWrappers, notificationWrappers);
-
-            var registry = new DispatcherRegistry(
-                queryWrappers.ToFrozenDictionary(),
-                commandWrappers.ToFrozenDictionary(),
-                notificationWrappers.ToFrozenDictionary());
+            var registry = RegisterWrappersAndTypes(services, assembly.GetTypes());
 
             _ = services.AddSingleton(registry);
             _ = services.AddScoped<PolochonDispatcher>();
-            services.AddScoped<IPolochonDispatcher>(sp => sp.GetRequiredService<PolochonDispatcher>());
-            //services.AddScoped<IPublisher>(sp => sp.GetRequiredService<Dispatcher>());
+            _ = services.AddScoped<IPolochonDispatcher>(sp => sp.GetRequiredService<PolochonDispatcher>());
 
             return services;
         }
 
-        private static void RegisterWrappersAndTypes(IServiceCollection services, Type[] types, Dictionary<Type, IMessageHandlerWrapper> queryWrappers, Dictionary<Type, IMessageHandlerWrapper> commandWrappers, Dictionary<Type, INotificationHandlerWrapper> notificationWrappers)
+        private static DispatcherRegistry RegisterWrappersAndTypes(
+            IServiceCollection services,
+            Type[] types)
         {
+            var queryWrappers = new Dictionary<Type, IMessageHandlerWrapper>();
+            var commandWrappers = new Dictionary<Type, IMessageHandlerWrapper>();
+            var notificationWrappers = new Dictionary<Type, INotificationHandlerWrapper>();
+            var queryTypes = new HashSet<Type>();
+            var commandTypes = new HashSet<Type>();
+
             foreach (var type in types)
             {
                 if (type.IsAbstract || type.IsInterface) continue;
@@ -75,6 +65,8 @@ namespace Polochon.Mediation
                         var requestType = args[0];
                         var responseType = args[1];
 
+                        _ = queryTypes.Add(requestType);
+
                         if (!queryWrappers.ContainsKey(requestType))
                         {
                             var wrapperType = typeof(QueryHandlerWrapper<,>)
@@ -90,6 +82,8 @@ namespace Polochon.Mediation
                         var args = iface.GetGenericArguments();
                         var requestType = args[0];
                         var responseType = args[1];
+
+                        _ = commandTypes.Add(requestType);
 
                         if (!commandWrappers.ContainsKey(requestType))
                         {
@@ -118,6 +112,13 @@ namespace Polochon.Mediation
                     }
                 }
             }
+
+            return new DispatcherRegistry(
+                queryTypes.ToFrozenSet(),
+                commandTypes.ToFrozenSet(),
+                queryWrappers.ToFrozenDictionary(),
+                commandWrappers.ToFrozenDictionary(),
+                notificationWrappers.ToFrozenDictionary());
         }
 
         /// <summary>

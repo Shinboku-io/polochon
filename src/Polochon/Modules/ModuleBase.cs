@@ -7,7 +7,6 @@ using Polochon.Mediation;
 
 namespace Polochon.Modules
 {
-
     /// <summary>
     /// Base class for modular monolith modules.
     /// Each module has its own isolated service container and mediator instance.
@@ -63,6 +62,20 @@ namespace Polochon.Modules
         public ValueTask<TResponse> SendCommandAsync<TResponse>(ICommand<TResponse> command, CancellationToken cancellationToken = default)
             => Mediator.SendCommandAsync<TResponse>(command, cancellationToken);
 
+        /// <inheritdoc/>
+        public bool CanHandleCommand<TResponse>(ICommand<TResponse> command)
+        {
+            var registry = ServiceProvider.GetRequiredService<DispatcherRegistry>();
+            return registry.CommandTypes.Contains(command.GetType());
+        }
+
+        /// <inheritdoc/>
+        public bool CanHandleQuery<TResponse>(IQuery<TResponse> query)
+        {
+            var registry = ServiceProvider.GetRequiredService<DispatcherRegistry>();
+            return registry.QueryTypes.Contains(query.GetType());
+        }
+
         /// <summary>
         /// Configures the services for this module.
         /// Override this method to register module-specific services.
@@ -75,41 +88,6 @@ namespace Polochon.Modules
         }
 
         /// <summary>
-        /// Attempts to invoke a generated module-specific Mediator configuration helper.
-        /// </summary>
-        /// <param name="services">The service collection to configure.</param>
-        /// <param name="types">The module assemblies to scan.</param>
-        /// <returns><see langword="true" /> when a generated helper was found and invoked; otherwise <see langword="false" />.</returns>
-        protected virtual bool TryConfigureGeneratedMediatorServices(IServiceCollection services, IReadOnlyList<Assembly> types)
-        {
-            var moduleType = GetType();
-            var helperTypeName = string.IsNullOrWhiteSpace(moduleType.Namespace)
-                ? $"{moduleType.Name}MediatorConfiguration"
-                : $"{moduleType.Namespace}.{moduleType.Name}MediatorConfiguration";
-
-            var helperType = moduleType.Assembly.GetType(helperTypeName, throwOnError: false, ignoreCase: false);
-            if (helperType is null)
-            {
-                return false;
-            }
-
-            var configureMethod = helperType.GetMethod(
-                "ConfigureMediatorServices",
-                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
-                binder: null,
-                types: [typeof(IServiceCollection), typeof(IReadOnlyList<Assembly>)],
-                modifiers: null);
-
-            if (configureMethod is null)
-            {
-                return false;
-            }
-
-            configureMethod.Invoke(null, [services, types]);
-            return true;
-        }
-
-        /// <summary>
         /// Configures additional services after the base configuration.
         /// </summary>
         /// <param name="services">The service collection to configure.</param>
@@ -117,8 +95,6 @@ namespace Polochon.Modules
         {
             // Override in derived modules to add additional services
         }
-
-
 
         /// <inheritdoc/>
         public void Initialize(IModuleConfiguration? configuration = null)
@@ -163,7 +139,6 @@ namespace Polochon.Modules
         public T GetRequiredService<T>()
             where T : notnull
             => ServiceProvider.GetRequiredService<T>();
-
 
         /// <inheritdoc/>
         public void Dispose()

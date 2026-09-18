@@ -8,14 +8,22 @@ namespace Polochon.Mediation
     internal sealed class DispatcherRegistry
     {
         public DispatcherRegistry(
+            FrozenSet<Type> queryTypes,
+            FrozenSet<Type> commandTypes,
             FrozenDictionary<Type, IMessageHandlerWrapper> queryWrappers,
             FrozenDictionary<Type, IMessageHandlerWrapper> commandWrappers,
             FrozenDictionary<Type, INotificationHandlerWrapper> notificationWrappers)
         {
             CommandWrappers = commandWrappers;
             QueryWrappers = queryWrappers;
+            QueryTypes = queryTypes;
+            CommandTypes = commandTypes;
             NotificationWrappers = notificationWrappers;
         }
+
+        public FrozenSet<Type> QueryTypes { get; }
+
+        public FrozenSet<Type> CommandTypes { get; }
 
         /// <summary>
         /// Gets the query handlers registry.

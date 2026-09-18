@@ -2,9 +2,11 @@
 
   <PropertyGroup>
     <!-- Inherits from kernel/Directory.Build.props -->
+    <PackageId>Polochon.Abstractions</PackageId>
+    <Description>Shared interfaces and DTOs for the Polochon kernel.</Description>
   </PropertyGroup>
   
   <ItemGroup>
-    <!-- Add technical abstractions here -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 </Project>

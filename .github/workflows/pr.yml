@@ -1,0 +1,59 @@
+name: PR
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  build-and-test:
+    name: Build, test and cover
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Shinboku.Polochon.slnx
+
+      - name: Build
+        run: dotnet build Shinboku.Polochon.slnx --no-restore -c Release
+
+      - name: Test with coverage
+        run: >
+          dotnet test --solution Shinboku.Polochon.slnx --no-build -c Release
+          --results-directory artifacts/test-results
+          -- --coverage --coverage-output-format cobertura
+
+      - name: Generate coverage report
+        uses: danielpalme/ReportGenerator-GitHub-Action@5.4.6
+        with:
+          reports: artifacts/test-results/**/*.cobertura.xml
+          targetdir: artifacts/coverage-report
+          reporttypes: Html;MarkdownSummaryGithub;Cobertura
+
+      - name: Add coverage to job summary
+        run: cat artifacts/coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment coverage on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: coverage
+          path: artifacts/coverage-report/SummaryGithub.md
+
+      - name: Upload HTML coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: artifacts/coverage-report
+        if: always()

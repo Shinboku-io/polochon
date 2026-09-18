@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Polochon.Abstractions.Modules;
 using Polochon.Tests.TestModule.Queries;
 using Xunit;
@@ -48,6 +49,19 @@ namespace Polochon.Tests.TestModule
 
             // Cleanup
             module.Dispose();
+        }
+
+        /// <summary>
+        /// Tests that every module gets a working logging pipeline out of the box, without the
+        /// module author having to configure it (ModuleBase.ConfigureServices wires it in).
+        /// </summary>
+        [Fact]
+        public void Module_ResolvesLoggerFactory_WithAProviderAttached()
+        {
+            // Assert - a logger backed by no provider would report IsEnabled == false
+            var loggerFactory = _module.GetRequiredService<ILoggerFactory>();
+            var logger = loggerFactory.CreateLogger("Polochon.Tests");
+            Assert.True(logger.IsEnabled(LogLevel.Information));
         }
 
         /// <summary>

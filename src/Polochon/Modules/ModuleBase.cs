@@ -3,6 +3,7 @@ using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Polochon.Abstractions.CQRS;
 using Polochon.Abstractions.Modules;
+using Polochon.Logging;
 using Polochon.Mediation;
 
 namespace Polochon.Modules
@@ -14,6 +15,7 @@ namespace Polochon.Modules
     public abstract class ModuleBase : IModularModule
     {
         private readonly ServiceCollection _serviceCollection;
+        private readonly List<Action<IServiceCollection, ModuleBase>> _externalConfigurators = [];
         private IServiceProvider? _serviceProvider;
         private bool _disposed;
 
@@ -85,6 +87,7 @@ namespace Polochon.Modules
         protected virtual void ConfigureServices([DisallowNull] IServiceCollection services, IReadOnlyList<Assembly> types)
         {
             services.AddDispatcher(types.First());
+            _ = services.AddPolochonLogging();
         }
 
         /// <summary>
@@ -96,10 +99,19 @@ namespace Polochon.Modules
             // Override in derived modules to add additional services
         }
 
+        /// <summary>
+        /// Queues a callback that configures this module's isolated service collection. Called by
+        /// <c>AddModule&lt;TModule&gt;()</c> to apply configuration layered on by an <see cref="IModularModuleBuilder"/>
+        /// (e.g. from a Polochon extension package such as Polochon.Serilog).
+        /// </summary>
+        /// <param name="configure">A callback that configures the module's isolated service collection, given the module instance.</param>
+        internal void AddConfigurator(Action<IServiceCollection, ModuleBase> configure) => _externalConfigurators.Add(configure);
+
         /// <inheritdoc/>
         public void Initialize(IModuleConfiguration? configuration = null)
         {
             ConfigureAdditionalServices(_serviceCollection);
+            ApplyExternalConfigurators();
             _serviceProvider = _serviceCollection.BuildServiceProvider();
         }
 
@@ -107,8 +119,17 @@ namespace Polochon.Modules
         public async Task InitializeAsync(IModuleConfiguration? configuration = null)
         {
             ConfigureAdditionalServices(_serviceCollection);
+            ApplyExternalConfigurators();
             _serviceProvider = _serviceCollection.BuildServiceProvider();
             await OnInitializedAsync().ConfigureAwait(false);
+        }
+
+        private void ApplyExternalConfigurators()
+        {
+            foreach (var configure in _externalConfigurators)
+            {
+                configure(_serviceCollection, this);
+            }
         }
 
         /// <summary>

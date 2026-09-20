@@ -156,8 +156,8 @@ namespace Polochon.Tests.TestModule.Queries
         /// </summary>
         private sealed class RecordingValidator : IMessageValidator<TestQueryWithValidation, TestQueryResult>
         {
-            public string Name { get; init; }
-            public List<string> CallOrder { get; init; }
+            public required string Name { get; init; }
+            public required List<string> CallOrder { get; init; }
 
             public string Metadata { get; set; } = string.Empty;
 

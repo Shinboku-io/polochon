@@ -2,6 +2,8 @@ using System.Collections.Frozen;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Polochon.Abstractions.CQRS;
+using Polochon.Abstractions.Messaging;
+using Polochon.Messaging;
 
 namespace Polochon.Mediation
 {
@@ -10,15 +12,17 @@ namespace Polochon.Mediation
     /// </summary>
     public static class ServiceRegister
     {
-        internal static IServiceCollection AddDispatcher(this IServiceCollection services, Type[] handlerTypes)
+        /// <summary>
+        /// Registers the dispatcher and scans the given handler types for IRequestHandler and
+        /// INotificationHandler implementations. Wrappers are built once and frozen.
+        /// </summary>
+        /// <param name="services">The service collection to register with.</param>
+        /// <param name="handlerTypes">The candidate types to scan for handler implementations.</param>
+        public static IServiceCollection AddDispatcher(this IServiceCollection services, Type[] handlerTypes)
         {
             var registry = RegisterWrappersAndTypes(services, handlerTypes);
 
-            _ = services.AddSingleton(registry);
-            _ = services.AddScoped<PolochonDispatcher>();
-            _ = services.AddScoped<IPolochonDispatcher>(sp => sp.GetRequiredService<PolochonDispatcher>());
-
-            return services;
+            return services.AddDispatcherCore(registry);
         }
 
         /// <summary>
@@ -31,9 +35,16 @@ namespace Polochon.Mediation
         {
             var registry = RegisterWrappersAndTypes(services, assembly.GetTypes());
 
+            return services.AddDispatcherCore(registry);
+        }
+
+        private static IServiceCollection AddDispatcherCore(this IServiceCollection services, DispatcherRegistry registry)
+        {
             _ = services.AddSingleton(registry);
             _ = services.AddScoped<PolochonDispatcher>();
             _ = services.AddScoped<IPolochonDispatcher>(sp => sp.GetRequiredService<PolochonDispatcher>());
+            _ = services.AddScoped<INotificationPublisher, NotificationPublisher>();
+            _ = services.AddSingleton<IOutbox, MemoryOutbox>();
 
             return services;
         }

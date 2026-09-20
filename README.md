@@ -12,9 +12,10 @@ Open source .NET kernel for building modular monoliths: a CQRS mediator, isolate
 
 | Package | What it's for |
 |---|---|
-| `Polochon` | The core kernel: the `IPolochonDispatcher` mediator, `ModuleBase` (isolated per-module DI container), module registration (`AddModule<TModule>()`), and base logging. |
-| `Polochon.Abstractions` | Shared contracts with no implementation: the CQRS interfaces (`IQuery`, `ICommand`, handlers, ...) and the module interfaces (`IModularModule`, `IModularModuleBuilder<TModule>`). Reference this from a module's application/domain layer if it shouldn't depend on the kernel implementation. |
+| `Polochon` | The core kernel: the `IPolochonDispatcher` mediator, `ModuleBase` (isolated per-module DI container), module registration (`AddModule<TModule>()`), base logging, and the EF Core `UnitOfWork<TContext>`/`GenericRepository<T, TIdentifier>` persistence layer. |
+| `Polochon.Abstractions` | Shared contracts with no implementation: the CQRS interfaces (`IQuery`, `ICommand`, handlers, ...), the module interfaces (`IModularModule`, `IModularModuleBuilder<TModule>`), and the domain-modeling base types (`Entity<TIdentifier>`, `ValueObject`, `IDomainEvent`/`IIntegrationEvent`). Reference this from a module's application/domain layer if it shouldn't depend on the kernel implementation. |
 | `Polochon.Serilog` | Swaps Polochon's default console logging for Serilog - at the host level, or independently per module. |
+| `Polochon.Persistence.SqlServer` | Swaps a module's default EF Core provider for SQL Server - module-level only, since (unlike logging) there's no host-level persistence default to swap. |
 
 ## Quickstart
 
@@ -59,7 +60,7 @@ public sealed class EchoQueryHandler : IQueryHandler<EchoQuery, EchoResult>
 }
 ```
 
-Commands follow the same shape with `ICommand`/`ICommand<TResponse>` and `ICommandHandler<>`/`ICommandHandler<,>`. Fire-and-forget events use `INotification`/`INotificationHandler<>` (multiple handlers per notification are allowed).
+Commands follow the same shape with `ICommand`/`ICommand<TResponse>` and `ICommandHandler<>`/`ICommandHandler<,>`. Fire-and-forget events use `INotification`/`INotificationHandler<>` and are published through `INotificationPublisher` - unlike a query or command, a notification may have zero, one, or many handlers, and publishing to zero is a normal no-op, not a failure.
 
 ### 4. Create a module
 
@@ -159,9 +160,110 @@ services.AddGreeting()
 
 Queued callbacks run after the module's own `ConfigureAdditionalServices` override and before the module's `IServiceProvider` is built, so a caller's configuration always has the final say over the module's own defaults.
 
+## Persistence: unit of work, domain and integration events
+
+An aggregate root derives from `Entity<TIdentifier>` to get identity plus the ability to raise events:
+
+```csharp
+using Polochon.Abstractions.Domain;
+
+public sealed class Order : Entity<OrderId>
+{
+    private Order(OrderId id) : base(id) { }
+
+    public static Order Place(OrderId id, decimal total)
+    {
+        var order = new Order(id);
+        order.AddEvent(new OrderPlacedDomainEvent(id, total));
+        return order;
+    }
+}
+```
+
+`AddEvent` (protected - call it from within the aggregate) accepts either kind of event:
+
+- **`IDomainEvent`** models an internal invariant or reaction. It's dispatched *in-process, synchronously, before the transaction commits* - a handler can still influence what gets persisted, and a handler that throws aborts the commit.
+- **`IIntegrationEvent`** is a versioned fact for *other modules*. It's only published *after* the commit succeeds, so a rolled-back transaction never leaks an event.
+
+A single event type must not implement both interfaces - `AddEvent` throws if it does. The two model different concerns on purpose: a domain event's shape is free to change with the aggregate's internals, while an integration event is a contract other modules take a dependency on. If a domain event needs a cross-module consequence, raise a second, distinct integration event instead.
+
+### Wiring up the unit of work
+
+`UnitOfWork<TContext>` is generic over your `DbContext` and owns one instance of it for its entire lifetime, created via `IDbContextFactory<TContext>` rather than resolved from the ambient DI scope - so it stays short-lived even inside a DI scope that might outlive it (a Blazor Server circuit, for example). Repositories in the same unit of work must resolve the *same* context instance, via `UnitOfWork<TContext>.Context`:
+
+```csharp
+services.AddDbContextFactory<OrdersDbContext>(options => options.UseSqlServer(connectionString), ServiceLifetime.Scoped);
+
+services.AddScoped<UnitOfWork<OrdersDbContext>>();
+services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<UnitOfWork<OrdersDbContext>>());
+
+// Repositories (and anything else) that need the context resolve this - the same instance
+// the unit of work above owns and commits - instead of each creating their own.
+services.AddScoped(sp => sp.GetRequiredService<UnitOfWork<OrdersDbContext>>().Context);
+```
+
+The lifetime matters: EF's own default is `Singleton`, which means an options-configuration callback (the `Action<IServiceProvider, DbContextOptionsBuilder>` overload) would only ever see the *root* provider - it could never safely resolve a scoped service (a per-request/per-tenant connection-string resolver, for example). `ServiceLifetime.Scoped` matches every other registration in this graph above.
+
+In your `DbContext`'s `OnModelCreating`, ignore the two event collections on every `Entity<TIdentifier>`-derived aggregate - otherwise EF Core's model builder tries (and fails) to map them as navigation properties:
+
+```csharp
+using Polochon.Persistence; // IgnoreRaisedEvents
+
+modelBuilder.Entity<Order>(builder =>
+{
+    builder.HasKey(o => o.Identifier);
+    builder.IgnoreRaisedEvents();
+});
+```
+
+Then, at the end of a use case:
+
+```csharp
+await orderRepository.AddAsync(order, cancellationToken);
+await unitOfWork.CommitAsync(cancellationToken); // dispatches domain events, saves, publishes integration events
+```
+
+`CommitAsync` collects and dispatches domain events in a loop - if a handler reacting to one event raises another (directly, or by mutating a second tracked aggregate), that event is collected and dispatched too, instead of being silently dropped.
+
+`RollbackAsync` discards every tracked change without ever calling `SaveChanges` - by disposing the current `Context` outright and replacing it with a freshly created one from the same `IDbContextFactory<TContext>`. Clearing the change tracker instead would stop tracking modified entities without undoing the in-memory property changes application code already made to them, and EF Core has no general, reliable way to revert an arbitrary tracked graph (relationship changes especially) one entity at a time - discarding the context is the only way to guarantee a true reset. The consequence: anything obtained through the old context, including entities a repository returned earlier in the same unit of work, is no longer valid - re-resolve `Context` (and any repository built on it) after rolling back, don't keep using what you had before the call.
+
+An aggregate that needs to react to its own deletion implements `IRaiseEventOnDelete`; `CommitAsync` calls `OnDelete()` on every entity tracked as `Deleted` before collecting events, so the event it raises there is dispatched normally.
+
+### Swapping a module's provider for SQL Server
+
+```sh
+dotnet add package Polochon.Persistence.SqlServer
+```
+
+```csharp
+using Polochon.Persistence.SqlServer;
+
+services.AddGreeting().WithSqlServer(connectionString);
+
+// or resolve the connection string from the module's own (scoped) provider - e.g. configuration,
+// or a per-tenant resolver:
+services.AddGreeting().WithSqlServer(sp => sp.GetRequiredService<IConfiguration>().GetConnectionString("Orders")!);
+```
+
+Unlike `WithSerilog()`, there's no host-level overload: only modules own `DbContext`s, so `WithSqlServer<TModule, TContext>()` is module-level only, layered on `IModularModuleBuilder<TModule>.ConfigureModule(...)` the same way. It always registers with `ServiceLifetime.Scoped` (not configurable), and it's safe to call even after the module already registered a default provider (e.g. `UseInMemoryDatabase` for local dev) - it explicitly removes that prior registration first, since EF Core's `AddDbContextFactory` registers via `TryAdd` internally and would otherwise silently do nothing on a second call.
+
+If your module's `DbContext` type is `internal` (the recommended default - see `app/AGENTS.md`-style infrastructure encapsulation rules in your own app), the host can never call `WithSqlServer<TModule, TContext>()` directly, since it can't name an internal type as a generic argument. Write your own zero-generic-parameter wrapper inside the module's assembly instead, mirroring `AddGreeting()`:
+
+```csharp
+// Inside the module's own assembly, where OrdersDbContext (internal) is nameable:
+public static IModularModuleBuilder<IModularModule> WithSqlServer(
+    this IModularModuleBuilder<IModularModule> builder,
+    string connectionString)
+    => builder.WithSqlServer<IModularModule, OrdersDbContext>(connectionString);
+```
+
+### The outbox is not a durable outbox (yet)
+
+Integration events are published to `IOutbox`, whose default implementation (`MemoryOutbox`) is **an in-memory relay, not a transactional outbox**: published messages live only in the process's memory and are lost on crash or restart. Real, durable delivery to other modules is planned to live in each *consuming* module's own inbox - a future cross-module bus will drain this relay and hand each message off there. Don't depend on `IOutbox` today where losing a buffered message on restart would be unacceptable.
+
 ## Repository layout
 
-- `src/`: production projects (`Polochon`, `Polochon.Abstractions`, `Polochon.Serilog`).
+- `src/`: production projects (`Polochon`, `Polochon.Abstractions`, `Polochon.Serilog`, `Polochon.Persistence.SqlServer`).
 - `tests/`: test projects.
 - `samples/`: package usage samples (placeholder for now).
 - `docs/`: public technical documentation (placeholder for now).

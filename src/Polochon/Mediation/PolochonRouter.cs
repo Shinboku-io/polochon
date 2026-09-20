@@ -1,9 +1,6 @@
 ﻿using Polochon.Abstractions.CQRS;
 using Polochon.Abstractions.Modules;
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Polochon.Mediation
 {

@@ -13,8 +13,20 @@ namespace Polochon.Abstractions.Modules
         /// </summary>
         string Name { get; }
 
+        /// <summary>
+        /// Determines whether the module can handle the specified command. Used for module routing
+        /// </summary>
+        /// <typeparam name="TResponse">The type of the response expected from the command.</typeparam>
+        /// <param name="command">The command to check.</param>
+        /// <returns>True if the module can handle the command; otherwise, false.</returns>
         bool CanHandleCommand<TResponse>(ICommand<TResponse> command);
 
+        /// <summary>
+        /// Determines whether the module can handle the specified query. Used for module routing.
+        /// </summary>
+        /// <typeparam name="TResponse">The type of the response expected from the query.</typeparam>
+        /// <param name="query">The query to check.</param>
+        /// <returns>True if the module can handle the query; otherwise, false.</returns>
         bool CanHandleQuery<TResponse>(IQuery<TResponse> query);
 
         /// <summary>

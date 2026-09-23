@@ -20,7 +20,7 @@ namespace Polochon.Persistence
         where TContext : DbContext
     {
         private readonly IDbContextFactory<TContext> contextFactory;
-        private readonly IOutbox outbox;
+        private readonly IOutboxWriter outbox;
         private readonly INotificationPublisher notificationPublisher;
         private readonly List<IIntegrationEvent> pendingIntegrationEvents = [];
         private bool disposed;
@@ -34,7 +34,7 @@ namespace Polochon.Persistence
         /// <param name="notificationPublisher">Where domain events are dispatched.</param>
         public UnitOfWork(
             IDbContextFactory<TContext> contextFactory,
-            IOutbox outbox,
+            IOutboxWriter outbox,
             INotificationPublisher notificationPublisher)
         {
             ArgumentNullException.ThrowIfNull(contextFactory);

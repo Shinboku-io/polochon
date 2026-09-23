@@ -39,5 +39,15 @@ namespace Polochon.Abstractions.Modules
         /// </summary>
         /// <param name="configure">A callback that configures the module's isolated service collection, given the module instance.</param>
         IModularModuleBuilder<TModule> ConfigureModule(Action<IServiceCollection, TModule> configure);
+
+        /// <summary>
+        /// Registers services directly into the host's own service collection - not this module's
+        /// isolated container. For extensions that need to add a host-level component tied to this
+        /// specific module, such as a hosted service (e.g. <c>WithInboxProcessing</c>). Runs
+        /// immediately, unlike <see cref="ConfigureModule"/>: the host's service collection is
+        /// available synchronously during registration, so there is nothing to queue.
+        /// </summary>
+        /// <param name="configure">A callback that configures the host's service collection.</param>
+        IModularModuleBuilder<TModule> ConfigureHostServices(Action<IServiceCollection> configure);
     }
 }

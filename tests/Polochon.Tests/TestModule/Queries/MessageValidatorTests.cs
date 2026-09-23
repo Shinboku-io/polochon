@@ -44,15 +44,18 @@ namespace Polochon.Tests.TestModule.Queries
         }
 
         /// <summary>
-        /// Tests that validation failure blocks the message handling and returns default.
+        /// Tests that validation failure blocks the message handling: the handler is not called.
         /// </summary>
-        [Fact]
-        public async Task Validator_BlocksHandler_WhenValidationFails()
+        [Fact(DisplayName = "Failing validator blocks the handler")]
+        public async Task ValidatorBlocksHandlerWhenValidationFails()
         {
             // Arrange
+            var validator = new RecordingValidator { Name = "Recorder", CallOrder = [] };
             var services = new ServiceCollection();
 
-            // Register a failing validator directly (not via scanning)
+            // For queries, the first registered validator runs closest to the handler, so the
+            // recording one runs after the failing one: it records only if the pipeline goes past the failure.
+            services.AddScoped<IMessageValidator<TestQueryWithValidation, TestQueryResult>>(sp => validator);
             services.AddScoped<IMessageValidator<TestQueryWithValidation, TestQueryResult>, FailingTestQueryValidator>();
 
             services.AddScoped<IQueryHandler<TestQueryWithValidation, TestQueryResult>, TestQueryHandlerAfterValidation>();
@@ -64,12 +67,10 @@ namespace Polochon.Tests.TestModule.Queries
             var query = new TestQueryWithValidation { Input = "any input" };
 
             // Act
-            var result = await dispatcher.SendQueryAsync(query);
+            _ = await Assert.ThrowsAsync<MessageValidationException>(async () => await dispatcher.SendQueryAsync(query));
 
             // Assert
-            // Validation should fail and block the handler, returning default
-            // The handler should not have been called
-            Assert.Null(result);
+            Assert.Empty(validator.CallOrder);
         }
 
         /// <summary>
@@ -114,10 +115,11 @@ namespace Polochon.Tests.TestModule.Queries
         }
 
         /// <summary>
-        /// Tests that MessageValidationException is thrown and caught correctly.
+        /// Tests that MessageValidationException propagates to the caller, so it knows the
+        /// message was rejected.
         /// </summary>
-        [Fact]
-        public async Task MessageValidationException_BlocksHandlerWithoutBubbling()
+        [Fact(DisplayName = "MessageValidationException propagates to the caller")]
+        public async Task MessageValidationExceptionPropagatesToCaller()
         {
             // Arrange
             var services = new ServiceCollection();
@@ -133,10 +135,11 @@ namespace Polochon.Tests.TestModule.Queries
 
             var query = new TestQueryWithValidation { Input = "should fail" };
 
-            // Act & Assert
-            // Should not throw, but return default (null)
-            var result = await dispatcher.SendQueryAsync(query);
-            Assert.Null(result);
+            // Act
+            var exception = await Assert.ThrowsAsync<MessageValidationException>(async () => await dispatcher.SendQueryAsync(query));
+
+            // Assert
+            Assert.Equal("Test validation always fails.", exception.Message);
         }
 
         /// <summary>

@@ -45,6 +45,12 @@ namespace Polochon.Mediation
             _ = services.AddScoped<IPolochonDispatcher>(sp => sp.GetRequiredService<PolochonDispatcher>());
             _ = services.AddScoped<INotificationPublisher, NotificationPublisher>();
             _ = services.AddSingleton<IOutbox, MemoryOutbox>();
+            _ = services.AddSingleton<IOutboxWriter>(sp => sp.GetRequiredService<IOutbox>());
+            _ = services.AddSingleton<IOutboxReader>(sp => sp.GetRequiredService<IOutbox>());
+            _ = services.AddSingleton<IInbox, MemoryInbox>();
+            _ = services.AddSingleton<IInboxWriter>(sp => sp.GetRequiredService<IInbox>());
+            _ = services.AddSingleton<IInboxReader>(sp => sp.GetRequiredService<IInbox>());
+            _ = services.AddSingleton<IErrorQueue, MemoryErrorQueue>();
 
             return services;
         }

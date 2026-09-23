@@ -2,9 +2,12 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Polochon.Abstractions.CQRS;
+using Polochon.Abstractions.Domain;
+using Polochon.Abstractions.Messaging;
 using Polochon.Abstractions.Modules;
 using Polochon.Logging;
 using Polochon.Mediation;
+using Polochon.Security;
 
 namespace Polochon.Modules
 {
@@ -78,6 +81,19 @@ namespace Polochon.Modules
             return registry.QueryTypes.Contains(query.GetType());
         }
 
+        /// <inheritdoc/>
+        public bool CanHandleIntegrationEvent(IIntegrationEvent integrationEvent)
+        {
+            var registry = ServiceProvider.GetRequiredService<DispatcherRegistry>();
+            return registry.NotificationWrappers.ContainsKey(integrationEvent.GetType());
+        }
+
+        /// <inheritdoc/>
+        public IInboxWriter Inbox => GetRequiredService<IInboxWriter>();
+
+        /// <inheritdoc/>
+        public IOutboxReader Outbox => GetRequiredService<IOutboxReader>();
+
         /// <summary>
         /// Configures the services for this module.
         /// Override this method to register module-specific services.
@@ -88,6 +104,7 @@ namespace Polochon.Modules
         {
             services.AddDispatcher(types.First());
             _ = services.AddPolochonLogging();
+            _ = services.AddPolochonUserIdentity();
         }
 
         /// <summary>

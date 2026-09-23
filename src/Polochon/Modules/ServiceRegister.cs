@@ -33,7 +33,7 @@ namespace Polochon.Modules
                 return module;
             });
 
-            return new ModularModuleBuilder<TModule>(configurators);
+            return new ModularModuleBuilder<TModule>(configurators, services);
         }
     }
 }

@@ -58,24 +58,15 @@ namespace Polochon.Mediation
 
             // Wrap validators around the handler (validators run just before the handler)
             // Iterating without reverse means the first registered validator runs closest to the handler
+            // A rejecting validator throws MessageValidationException, which propagates to the caller
             foreach (var validator in validators)
             {
                 var next = pipeline;
                 var current = validator;
                 pipeline = async () =>
                 {
-                    try
-                    {
-                        await current.ValidateAsync(typed, cancellationToken);
-                        return await next();
-                    }
-                    catch (MessageValidationException)
-                    {
-                        // Validation failed - block the handling without bubbling the error
-                        // Return default response to signal that validation failed
-                        // The caller will receive a default/empty response
-                        return default!;
-                    }
+                    await current.ValidateAsync(typed, cancellationToken);
+                    return await next();
                 };
             }
 
@@ -123,24 +114,15 @@ namespace Polochon.Mediation
 
             // Wrap validators around the handler (validators run just before the handler)
             // Iterating in reverse means the first registered validator runs closest to the handler
+            // A rejecting validator throws MessageValidationException, which propagates to the caller
             foreach (var validator in validators.Reverse())
             {
                 var next = pipeline;
                 var current = validator;
                 pipeline = async () =>
                 {
-                    try
-                    {
-                        await current.ValidateAsync(typed, cancellationToken);
-                        return await next();
-                    }
-                    catch (MessageValidationException)
-                    {
-                        // Validation failed - block the handling without bubbling the error
-                        // Return default response to signal that validation failed
-                        // The caller will receive a default/empty response
-                        return default!;
-                    }
+                    await current.ValidateAsync(typed, cancellationToken);
+                    return await next();
                 };
             }
 

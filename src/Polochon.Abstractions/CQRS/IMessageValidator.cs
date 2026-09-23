@@ -11,9 +11,9 @@
     {
         /// <summary>
         /// Validates the message asynchronously.
-        /// If validation fails, this method should throw an exception.
-        /// The exception will be caught and handled internally, blocking message processing
-        /// without bubbling the error to the caller.
+        /// If validation fails, this method should throw a <see cref="MessageValidationException"/>.
+        /// The exception blocks message processing (the handler is not called) and propagates
+        /// to the caller of the dispatcher, so it knows the message was rejected.
         /// </summary>
         /// <param name="request">The request message to validate.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
@@ -23,10 +23,9 @@
     }
 
     /// <summary>
-    /// Exception thrown when message validation fails.
-    /// This exception is used internally to signal validation failures and is caught
-    /// by the message handling pipeline to block further processing without bubbling
-    /// the error to the caller.
+    /// Exception thrown when message validation fails, e.g. when the sender is not allowed to
+    /// send the message. The message handling pipeline does not catch it: the handler is not
+    /// called and the exception propagates to the caller of the dispatcher.
     /// </summary>
     public sealed class MessageValidationException : Exception
     {

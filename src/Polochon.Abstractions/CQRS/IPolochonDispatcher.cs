@@ -12,6 +12,7 @@
         /// <param name="query">The query to send.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The query response.</returns>
+        /// <exception cref="MessageValidationException">Thrown when a validator rejects the message; the handler is not called.</exception>
         ValueTask<TResponse> SendQueryAsync<TResponse>(IQuery<TResponse> query, CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -20,6 +21,7 @@
         /// <param name="command">The command to send.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A task representing the async operation.</returns>
+        /// <exception cref="MessageValidationException">Thrown when a validator rejects the message; the handler is not called.</exception>
         ValueTask SendCommandAsync(ICommand command, CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -29,6 +31,7 @@
         /// <param name="command">The command to send.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The command response.</returns>
+        /// <exception cref="MessageValidationException">Thrown when a validator rejects the message; the handler is not called.</exception>
         ValueTask<TResponse> SendCommandAsync<TResponse>(ICommand<TResponse> command, CancellationToken cancellationToken = default);
     }
 }

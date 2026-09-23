@@ -2,7 +2,9 @@
 using Polochon.Abstractions.CQRS;
 using Polochon.Logging;
 using Polochon.Mediation;
+using Polochon.Messaging;
 using Polochon.Modules;
+using Polochon.Security;
 
 namespace Polochon
 {
@@ -20,8 +22,11 @@ namespace Polochon
         {
             return services
                 .AddPolochonLogging()
+                .AddPolochonUserIdentity()
                 .AddSingleton<IPolochonDispatcher, PolochonRouter>()
+                .AddSingleton<EventBus>()
+                .AddHostedService(provider => provider.GetRequiredService<EventBus>())
                 .AddHostedService<LifecycleService>();
         }
     }
-}
+}

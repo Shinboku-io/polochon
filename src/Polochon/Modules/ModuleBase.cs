@@ -103,6 +103,10 @@ namespace Polochon.Modules
         protected virtual void ConfigureServices([DisallowNull] IServiceCollection services, IReadOnlyList<Assembly> types)
         {
             services.AddDispatcher(types.First());
+
+            // Registered first so it runs outermost: commands returning a CommandResult report
+            // every failure, including one thrown by the unit of work, as a ResultCode.
+            _ = services.AddPipelineBehavior(typeof(CommandResultBehavior<,>));
             _ = services.AddPolochonLogging();
             _ = services.AddPolochonUserIdentity();
         }

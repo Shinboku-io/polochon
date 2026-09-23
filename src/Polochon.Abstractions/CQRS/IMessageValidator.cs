@@ -1,4 +1,6 @@
-﻿namespace Polochon.Abstractions.CQRS
+﻿using Polochon.Abstractions.Results;
+
+namespace Polochon.Abstractions.CQRS
 {
     /// <summary>
     /// Validator interface for validating messages before they are handled.
@@ -48,5 +50,51 @@
         /// <param name="message">The error message that explains the reason for the exception.</param>
         /// <param name="innerException">The exception that is the cause of the current exception.</param>
         public MessageValidationException(string message, Exception innerException) : base(message, innerException) { }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MessageValidationException"/> class
+        /// with the code reported to the caller of a command returning a <see cref="CommandResult"/>.
+        /// </summary>
+        /// <param name="error">The code reporting why the message was rejected.</param>
+        /// <param name="message">The error message that explains the reason for the exception.</param>
+        public MessageValidationException(ResultCode error, string message) : base(message)
+        {
+            Error = error;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MessageValidationException"/> class
+        /// from every failure a <see cref="MessageValidator{TRequest, TResponse}"/> found: the first
+        /// one is reported, all of them are kept in <see cref="Errors"/>.
+        /// </summary>
+        /// <param name="errors">Every failure, in rule order. Must not be empty.</param>
+        public MessageValidationException(IReadOnlyList<ValidationError> errors)
+            : base(FirstOf(errors).Message)
+        {
+            Error = errors[0].Code;
+            Errors = errors;
+        }
+
+        /// <summary>
+        /// The code reporting why the message was rejected, when the validator gave one.
+        /// Without it, a command returning a <see cref="CommandResult"/> reports
+        /// <see cref="ResultCode.ValidationFailed"/>.
+        /// </summary>
+        public ResultCode? Error { get; }
+
+        /// <summary>
+        /// Every failure found, in rule order, when the message was rejected by a
+        /// <see cref="MessageValidator{TRequest, TResponse}"/>; empty otherwise.
+        /// </summary>
+        public IReadOnlyList<ValidationError> Errors { get; } = [];
+
+        private static ValidationError FirstOf(IReadOnlyList<ValidationError> errors)
+        {
+            ArgumentNullException.ThrowIfNull(errors);
+
+            return errors.Count > 0
+                ? errors[0]
+                : throw new ArgumentException("At least one validation error is required.", nameof(errors));
+        }
     }
 }

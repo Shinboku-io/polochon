@@ -107,14 +107,32 @@ A domain-specific wrapper like `AddGreeting()` above is optional but conventiona
 ### 6. Send a query from anywhere in the host
 
 ```csharp
-public sealed class GreetingEndpoint(IPolochonDispatcher dispatcher)
+public sealed class GreetingEndpoint
 {
+    private readonly IPolochonDispatcher dispatcher;
+
+    public GreetingEndpoint(IPolochonDispatcher dispatcher)
+    {
+        this.dispatcher = dispatcher;
+    }
+
     public async Task<EchoResult> Get(string message, CancellationToken cancellationToken)
         => await dispatcher.SendQueryAsync(new EchoQuery { Message = message }, cancellationToken);
 }
 ```
 
 `IPolochonDispatcher` (registered by `AddPolochon()`) finds the module that can handle the query and routes to it - callers never need to know, or reference, which module owns a given query or command.
+
+## Message scope: return fully resolved objects
+
+Every query or command sent to a module is handled in a DI scope of its own, created for that message and disposed as soon as it has been handled: its handler gets fresh scoped services (unit of work, `DbContext`, repositories...) instead of sharing them with any other message. A message a handler sends through its own injected `IPolochonDispatcher` stays in that same scope.
+
+The consequence, implicit with aggregates but easy to miss: **whatever a module returns must be fully resolved before it leaves the handler**, because the context that produced it is gone by the time the caller reads it.
+
+- **Materialize collections** - return an `IReadOnlyList<T>` built with `ToListAsync`, never an `IQueryable<T>`, a lazily evaluated `IEnumerable<T>` or an `IAsyncEnumerable<T>` still bound to the context.
+- **Load everything the caller will read** - include the related data in the query (a specification, or `GenericRepository`'s `ApplyIncludes`). A navigation property left unloaded stays empty, and a lazy-loading proxy would throw `ObjectDisposedException`.
+- **Never hand out scoped services** - no `DbContext`, unit of work or repository, not even wrapped in another object.
+- **Treat returned aggregates as read-only snapshots** - they are detached from any unit of work, so changing one persists nothing. Changes go through a command. When the caller only displays data, prefer returning a dedicated read model or DTO over the aggregate itself.
 
 ## Logging
 
@@ -190,17 +208,49 @@ A single event type must not implement both interfaces - `AddEvent` throws if it
 
 ### Wiring up the unit of work
 
-`UnitOfWork<TContext>` is generic over your `DbContext` and owns one instance of it for its entire lifetime, created via `IDbContextFactory<TContext>` rather than resolved from the ambient DI scope - so it stays short-lived even inside a DI scope that might outlive it (a Blazor Server circuit, for example). Repositories in the same unit of work must resolve the *same* context instance, via `UnitOfWork<TContext>.Context`:
+`UnitOfWork<TContext>` is generic over your `DbContext` and owns one instance of it for its entire lifetime, created via `IDbContextFactory<TContext>` rather than resolved from the ambient DI scope - so it stays short-lived even inside a DI scope that might outlive it (a Blazor Server circuit, for example). Repositories in the same unit of work must use the *same* context instance, `UnitOfWork<TContext>.Context`.
+
+Writes go through the unit of work: derive a module-specific one that exposes the module's mutable repositories, and have command handlers depend on its interface - never on a mutable repository directly. Reads go through read-only repositories (see [Reading through a repository](#reading-through-a-repository)).
+
+```csharp
+// Application layer: the write port command handlers depend on.
+public interface IOrdersUnitOfWork : IUnitOfWork
+{
+    IOrderRepository Orders { get; }
+}
+```
+
+```csharp
+// Infrastructure layer.
+internal sealed class OrdersUnitOfWork : UnitOfWork<OrdersDbContext>, IOrdersUnitOfWork
+{
+    public OrdersUnitOfWork(
+        IDbContextFactory<OrdersDbContext> contextFactory,
+        IOutboxWriter outbox,
+        INotificationPublisher notificationPublisher)
+        : base(contextFactory, outbox, notificationPublisher)
+    {
+    }
+
+    // Built over the current Context on each access (a repository is cheap to create), so it
+    // follows RollbackAsync replacing the context instead of holding on to the disposed one.
+    public IOrderRepository Orders => new OrderRepository(Context);
+}
+```
 
 ```csharp
 services.AddDbContextFactory<OrdersDbContext>(options => options.UseSqlServer(connectionString), ServiceLifetime.Scoped);
 
-services.AddScoped<UnitOfWork<OrdersDbContext>>();
-services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<UnitOfWork<OrdersDbContext>>());
+services.AddScoped<OrdersUnitOfWork>();
+services.AddScoped<IOrdersUnitOfWork>(sp => sp.GetRequiredService<OrdersUnitOfWork>());
 
-// Repositories (and anything else) that need the context resolve this - the same instance
-// the unit of work above owns and commits - instead of each creating their own.
-services.AddScoped(sp => sp.GetRequiredService<UnitOfWork<OrdersDbContext>>().Context);
+// Anything else that needs the context resolves this - the same instance the unit of work
+// above owns and commits - instead of creating its own.
+services.AddScoped(sp => sp.GetRequiredService<OrdersUnitOfWork>().Context);
+
+// Read side: only the read-only interface is registered. The mutable one is reachable through
+// IOrdersUnitOfWork alone, so nothing can write outside a unit of work.
+services.AddScoped<IReadOnlyRepository<Order, OrderId>, OrderRepository>();
 ```
 
 The lifetime matters: EF's own default is `Singleton`, which means an options-configuration callback (the `Action<IServiceProvider, DbContextOptionsBuilder>` overload) would only ever see the *root* provider - it could never safely resolve a scoped service (a per-request/per-tenant connection-string resolver, for example). `ServiceLifetime.Scoped` matches every other registration in this graph above.
@@ -217,16 +267,44 @@ modelBuilder.Entity<Order>(builder =>
 });
 ```
 
-Then, at the end of a use case:
+Then, in a command handler:
 
 ```csharp
-await orderRepository.AddAsync(order, cancellationToken);
-await unitOfWork.CommitAsync(cancellationToken); // dispatches domain events, saves, publishes integration events
+public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand, CommandResult>
+{
+    private readonly IOrdersUnitOfWork unitOfWork;
+
+    public PlaceOrderCommandHandler(IOrdersUnitOfWork unitOfWork)
+    {
+        this.unitOfWork = unitOfWork;
+    }
+
+    public async ValueTask<CommandResult> HandleAsync(PlaceOrderCommand command, CancellationToken cancellationToken)
+    {
+        var order = Order.Place(command.OrderId, command.Total);
+
+        await unitOfWork.Orders.AddAsync(order, cancellationToken);
+        await unitOfWork.CommitAsync(cancellationToken); // dispatches domain events, saves, publishes integration events
+
+        return CommandResult.Success();
+    }
+}
+```
+
+With the command itself a record, in its own file (as is the handler):
+
+```csharp
+public sealed record PlaceOrderCommand : ICommand<CommandResult>
+{
+    public required OrderId OrderId { get; init; }
+
+    public required decimal Total { get; init; }
+}
 ```
 
 `CommitAsync` collects and dispatches domain events in a loop - if a handler reacting to one event raises another (directly, or by mutating a second tracked aggregate), that event is collected and dispatched too, instead of being silently dropped.
 
-`RollbackAsync` discards every tracked change without ever calling `SaveChanges` - by disposing the current `Context` outright and replacing it with a freshly created one from the same `IDbContextFactory<TContext>`. Clearing the change tracker instead would stop tracking modified entities without undoing the in-memory property changes application code already made to them, and EF Core has no general, reliable way to revert an arbitrary tracked graph (relationship changes especially) one entity at a time - discarding the context is the only way to guarantee a true reset. The consequence: anything obtained through the old context, including entities a repository returned earlier in the same unit of work, is no longer valid - re-resolve `Context` (and any repository built on it) after rolling back, don't keep using what you had before the call.
+`RollbackAsync` discards every tracked change without ever calling `SaveChanges` - by disposing the current `Context` outright and replacing it with a freshly created one from the same `IDbContextFactory<TContext>`. Clearing the change tracker instead would stop tracking modified entities without undoing the in-memory property changes application code already made to them, and EF Core has no general, reliable way to revert an arbitrary tracked graph (relationship changes especially) one entity at a time - discarding the context is the only way to guarantee a true reset. The consequence: anything obtained through the old context, including entities a repository returned earlier in the same unit of work, is no longer valid - re-resolve `Context` (and any repository built on it) after rolling back, don't keep using what you had before the call. A repository exposed by the unit of work as above, built over `Context` on each access, follows automatically.
 
 An aggregate that needs to react to its own deletion implements `IRaiseEventOnDelete`; `CommitAsync` calls `OnDelete()` on every entity tracked as `Deleted` before collecting events, so the event it raises there is dispatched normally.
 
@@ -235,6 +313,14 @@ An aggregate that needs to react to its own deletion implements `IRaiseEventOnDe
 `GenericRepository<T, TIdentifier>` implements `IReadOnlyRepository<,>` and `IMutableRepository<,>` over the unit of work's context. Derive from it once per aggregate root, passing a selector for the mapped identifier property:
 
 ```csharp
+// Application layer: the module's mutable repository port, exposed by IOrdersUnitOfWork.
+public interface IOrderRepository : IMutableRepository<Order, OrderId>
+{
+}
+```
+
+```csharp
+// Infrastructure layer.
 internal sealed class OrderRepository : GenericRepository<Order, OrderId>, IOrderRepository
 {
     public OrderRepository(OrdersDbContext context)
@@ -244,7 +330,7 @@ internal sealed class OrderRepository : GenericRepository<Order, OrderId>, IOrde
 }
 ```
 
-Every repository method takes a `CancellationToken`, with no default value - pass the one your handler received, so that a caller giving up (an aborted HTTP request, a closed Blazor circuit, a timeout) also cancels the database round trip instead of letting it run to completion for nobody:
+Query handlers depend on the read-only interface only - never on the unit of work - and return fully resolved objects (see [Message scope](#message-scope-return-fully-resolved-objects)). Every repository method takes a `CancellationToken`, with no default value - pass the one your handler received, so that a caller giving up (an aborted HTTP request, a closed Blazor circuit, a timeout) also cancels the database round trip instead of letting it run to completion for nobody:
 
 ```csharp
 public sealed class GetOrderQueryHandler : IQueryHandler<GetOrderQuery, Order?>

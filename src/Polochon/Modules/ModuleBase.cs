@@ -50,22 +50,34 @@ namespace Polochon.Modules
             }
         }
 
-        /// <summary>
-        /// Gets the module's mediator instance.
-        /// </summary>
-        public IPolochonDispatcher Mediator => ServiceProvider.GetRequiredService<IPolochonDispatcher>();
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Handled in a DI scope of its own, disposed once the query completes: its handler gets fresh
+        /// scoped services (unit of work, <c>DbContext</c>...) instead of sharing them with every other
+        /// message sent to this module. Messages a handler sends through its own injected
+        /// <see cref="IPolochonDispatcher"/> stay in that scope.
+        /// </remarks>
+        public async ValueTask<TResponse> SendQueryAsync<TResponse>(IQuery<TResponse> query, CancellationToken cancellationToken = default)
+        {
+            await using var scope = ServiceProvider.CreateAsyncScope();
+            return await scope.ServiceProvider.GetRequiredService<IPolochonDispatcher>().SendQueryAsync(query, cancellationToken);
+        }
 
         /// <inheritdoc/>
-        public ValueTask<TResponse> SendQueryAsync<TResponse>(IQuery<TResponse> query, CancellationToken cancellationToken = default)
-            => Mediator.SendQueryAsync<TResponse>(query, cancellationToken);
+        /// <remarks>Handled in a DI scope of its own - see <see cref="SendQueryAsync{TResponse}"/>.</remarks>
+        public async ValueTask SendCommandAsync(ICommand command, CancellationToken cancellationToken = default)
+        {
+            await using var scope = ServiceProvider.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<IPolochonDispatcher>().SendCommandAsync(command, cancellationToken);
+        }
 
         /// <inheritdoc/>
-        public ValueTask SendCommandAsync(ICommand command, CancellationToken cancellationToken = default)
-            => Mediator.SendCommandAsync(command, cancellationToken);
-
-        /// <inheritdoc/>
-        public ValueTask<TResponse> SendCommandAsync<TResponse>(ICommand<TResponse> command, CancellationToken cancellationToken = default)
-            => Mediator.SendCommandAsync<TResponse>(command, cancellationToken);
+        /// <remarks>Handled in a DI scope of its own - see <see cref="SendQueryAsync{TResponse}"/>.</remarks>
+        public async ValueTask<TResponse> SendCommandAsync<TResponse>(ICommand<TResponse> command, CancellationToken cancellationToken = default)
+        {
+            await using var scope = ServiceProvider.CreateAsyncScope();
+            return await scope.ServiceProvider.GetRequiredService<IPolochonDispatcher>().SendCommandAsync(command, cancellationToken);
+        }
 
         /// <inheritdoc/>
         public bool CanHandleCommand<TResponse>(ICommand<TResponse> command)

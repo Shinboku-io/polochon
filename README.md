@@ -14,7 +14,7 @@ Open source .NET kernel for building modular monoliths: a CQRS mediator, isolate
 |---|---|
 | `Polochon` | The core kernel: the `IPolochonDispatcher` mediator, `ModuleBase` (isolated per-module DI container), module registration (`AddModule<TModule>()`), base logging, per-module telemetry (traces and metrics of every command and query), module feature flags (`WithFeatureManagement()`), and the EF Core `UnitOfWork<TContext>`/`GenericRepository<T, TIdentifier>` persistence layer. |
 | `Polochon.Abstractions` | Shared contracts with no implementation: the CQRS interfaces (`IQuery`, `ICommand`, handlers, ...), the module interfaces (`IModularModule`, `IModularModuleBuilder<TModule>`), and the domain-modeling base types (`Entity<TIdentifier>`, `ValueObject`, `IDomainEvent`/`IIntegrationEvent`). Reference this from a module's application/domain layer if it shouldn't depend on the kernel implementation. |
-| `Polochon.FeatureManagement.AzureAppConfiguration` | Makes an Azure App Configuration store the source of the host's feature flags (endpoint, identity, labels, refresh, Key Vault) - host-level only, so none of that plumbing reaches modules. |
+| `Polochon.FeatureManagement.Azure` | Makes an Azure App Configuration store the source of the host's feature flags (endpoint, identity, labels, refresh, Key Vault) - host-level only, so none of that plumbing reaches modules. |
 | `Polochon.Serilog` | Swaps Polochon's default console logging for Serilog - at the host level, or independently per module. |
 | `Polochon.Persistence.SqlServer` | Swaps a module's default EF Core provider for SQL Server - module-level only, since (unlike logging) there's no host-level persistence default to swap. |
 | `Polochon.Validation.FluentValidation` | Runs a module's FluentValidation validators as Polochon message validators, reporting the first failure as a `ResultCode`. |
@@ -213,7 +213,7 @@ internal sealed class GreetQueryHandler : IQueryHandler<GreetQuery, string>
 
 `WithFeatureManagement()` gives the module an `IFeatureDefinitionProvider` that forwards to the host's, so the module never sees the host's `IConfiguration`, endpoints or credentials. Definitions are read through on each evaluation, so a configuration reload on the host reaches every module. Feature filters, targeting and variants are still evaluated inside the module: `WithFeatureManagement(fm => fm.AddFeatureFilter<MyFilter>())` adds a filter to that module only. If the host has not registered feature management, module initialization fails at startup, naming the module.
 
-To load the host's flags from Azure App Configuration instead, see [`Polochon.FeatureManagement.AzureAppConfiguration`](src/Polochon.FeatureManagement.AzureAppConfiguration/README.md) - modules do not change.
+To load the host's flags from Azure App Configuration instead, see [`Polochon.FeatureManagement.Azure`](src/Polochon.FeatureManagement.Azure/README.md) - modules do not change.
 
 ## Telemetry
 

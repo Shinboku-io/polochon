@@ -5,11 +5,11 @@
   <Project Path="src/Polochon.Persistence.SqlServer/Polochon.Persistence.SqlServer.csproj" Id="90280fbf-269d-42f5-9f73-d98cc8f1b077" />
   <Project Path="src/Polochon.Messaging.AzureQueue/Polochon.Messaging.AzureQueue.csproj" Id="4e7d9c1a-3b6f-4a2e-8c5d-7f1a9e2b6d4c" />
   <Project Path="src/Polochon.Validation.FluentValidation/Polochon.Validation.FluentValidation.csproj" Id="e2bf45d1-7ff3-4066-b2e0-3a4faf462438" />
-  <Project Path="src/Polochon.FeatureManagement.AzureAppConfiguration/Polochon.FeatureManagement.AzureAppConfiguration.csproj" Id="d09fd111-ad8d-4c07-9f10-9526e2b59655" />
+  <Project Path="src/Polochon.FeatureManagement.Azure/Polochon.FeatureManagement.Azure.csproj" Id="d09fd111-ad8d-4c07-9f10-9526e2b59655" />
   <Project Path="tests/Polochon.Tests/Polochon.Tests.csproj" Id="c528eceb-4acc-4afd-a560-8247cf3eaa8e" />
   <Project Path="tests/Polochon.Serilog.Tests/Polochon.Serilog.Tests.csproj" Id="b6e4c1a9-7f2d-4e3b-8a5c-2d9f6b1e4a7c" />
   <Project Path="tests/Polochon.Persistence.SqlServer.Tests/Polochon.Persistence.SqlServer.Tests.csproj" Id="831a73d6-040c-4b44-8b70-204e2a3c8012" />
   <Project Path="tests/Polochon.Messaging.AzureQueue.Tests/Polochon.Messaging.AzureQueue.Tests.csproj" Id="6b2e8f4d-1a9c-4d7e-9f3b-5c6a8e2d4f1b" />
   <Project Path="tests/Polochon.Validation.FluentValidation.Tests/Polochon.Validation.FluentValidation.Tests.csproj" Id="31468637-5d1e-48cd-9ab1-c7e1f4e8185c" />
-  <Project Path="tests/Polochon.FeatureManagement.AzureAppConfiguration.Tests/Polochon.FeatureManagement.AzureAppConfiguration.Tests.csproj" Id="86b7d3f4-5a46-447a-84bd-d9bfb8b50357" />
+  <Project Path="tests/Polochon.FeatureManagement.Azure.Tests/Polochon.FeatureManagement.Azure.Tests.csproj" Id="86b7d3f4-5a46-447a-84bd-d9bfb8b50357" />
 </Solution>

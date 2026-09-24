@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration.AzureAppConfiguration;
 using Microsoft.Extensions.Hosting;
 
-namespace Polochon.FeatureManagement.AzureAppConfiguration
+namespace Polochon.FeatureManagement.Azure
 {
     /// <summary>
     /// Periodically refreshes the host's Azure App Configuration data, so feature flag changes reach

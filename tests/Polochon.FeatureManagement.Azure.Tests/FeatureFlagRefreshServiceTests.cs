@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
-namespace Polochon.FeatureManagement.AzureAppConfiguration.Tests
+namespace Polochon.FeatureManagement.Azure.Tests
 {
     /// <summary>
     /// Tests for <see cref="FeatureFlagRefreshService"/>, driven by a fake clock instead of real time.
@@ -37,16 +37,20 @@ namespace Polochon.FeatureManagement.AzureAppConfiguration.Tests
         }
 
         /// <summary>
-        /// Tests that stopping the host stops refreshing, without surfacing the cancellation as a failure.
+        /// Tests that stopping the host while the refresh loop waits for its next tick stops refreshing,
+        /// without surfacing the cancellation as a failure.
         /// </summary>
         [Fact(DisplayName = "Refresh service stops cleanly with the host")]
         public async Task RefreshServiceStopsCleanlyWithTheHost()
         {
-            // Arrange
+            // Arrange: let the loop run once, so it is waiting for its next tick when the host stops.
+            // Stopping before BackgroundService even started ExecuteAsync would only test the base class.
             var refresher = new CountingRefresher();
             var timeProvider = new FakeTimeProvider();
             using var service = CreateService(timeProvider, refresher);
             await service.StartAsync(TestContext.Current.CancellationToken);
+            timeProvider.Advance(Interval);
+            await WaitUntilAsync(() => refresher.RefreshCount == 1);
 
             // Act
             await service.StopAsync(TestContext.Current.CancellationToken);
@@ -54,7 +58,7 @@ namespace Polochon.FeatureManagement.AzureAppConfiguration.Tests
 
             // Assert
             Assert.True(service.ExecuteTask!.IsCompletedSuccessfully);
-            Assert.Equal(0, refresher.RefreshCount);
+            Assert.Equal(1, refresher.RefreshCount);
         }
 
         private static FeatureFlagRefreshService CreateService(TimeProvider timeProvider, params CountingRefresher[] refreshers)

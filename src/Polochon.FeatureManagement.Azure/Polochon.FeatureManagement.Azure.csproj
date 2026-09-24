@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <PackageId>Polochon.FeatureManagement.AzureAppConfiguration</PackageId>
+    <PackageId>Polochon.FeatureManagement.Azure</PackageId>
     <Description>Azure App Configuration feature flags for the Polochon kernel: host-level source of the feature definitions modules evaluate.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Polochon.FeatureManagement.AzureAppConfiguration.Tests" />
+    <InternalsVisibleTo Include="Polochon.FeatureManagement.Azure.Tests" />
   </ItemGroup>
 
 </Project>

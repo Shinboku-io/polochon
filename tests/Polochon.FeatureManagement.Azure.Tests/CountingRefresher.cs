@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration.AzureAppConfiguration;
 
-namespace Polochon.FeatureManagement.AzureAppConfiguration.Tests
+namespace Polochon.FeatureManagement.Azure.Tests
 {
     /// <summary>
     /// <see cref="IConfigurationRefresher"/> counting the refreshes it is asked for, without any store.

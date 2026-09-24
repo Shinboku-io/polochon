@@ -1,6 +1,5 @@
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Diagnostics.Metrics;
 using Polochon.Abstractions.Telemetry;
 using Polochon.Mediation;
 

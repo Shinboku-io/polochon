@@ -1,6 +1,6 @@
 using Polochon.Modules;
 
-namespace Polochon.FeatureManagement.AzureAppConfiguration.Tests
+namespace Polochon.FeatureManagement.Azure.Tests
 {
     /// <summary>
     /// Minimal <see cref="ModuleBase"/> used to exercise <c>AddModule&lt;TModule&gt;().WithFeatureManagement()</c>

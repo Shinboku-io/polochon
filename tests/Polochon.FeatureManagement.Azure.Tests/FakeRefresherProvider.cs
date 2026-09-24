@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration.AzureAppConfiguration;
 
-namespace Polochon.FeatureManagement.AzureAppConfiguration.Tests
+namespace Polochon.FeatureManagement.Azure.Tests
 {
     /// <summary>
     /// <see cref="IConfigurationRefresherProvider"/> handing out a fixed set of refreshers.

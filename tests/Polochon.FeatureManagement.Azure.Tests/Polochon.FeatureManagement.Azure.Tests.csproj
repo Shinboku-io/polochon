@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Polochon/Polochon.csproj" />
-    <ProjectReference Include="../../src/Polochon.FeatureManagement.AzureAppConfiguration/Polochon.FeatureManagement.AzureAppConfiguration.csproj" />
+    <ProjectReference Include="../../src/Polochon.FeatureManagement.Azure/Polochon.FeatureManagement.Azure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

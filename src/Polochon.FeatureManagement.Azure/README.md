@@ -1,4 +1,4 @@
-# Polochon.FeatureManagement.AzureAppConfiguration
+# Polochon.FeatureManagement.Azure
 
 Loads a Polochon host's feature flags from [Azure App Configuration](https://learn.microsoft.com/azure/azure-app-configuration/overview) and keeps them refreshed while the host runs.
 
@@ -17,7 +17,7 @@ Azure App Configuration --(endpoint, identity, label, refresh)--> host IConfigur
 ## Install
 
 ```sh
-dotnet add package Polochon.FeatureManagement.AzureAppConfiguration
+dotnet add package Polochon.FeatureManagement.Azure
 ```
 
 ## Quick start
@@ -27,7 +27,7 @@ Host (`Program.cs`):
 ```csharp
 using Polochon;
 using Polochon.FeatureManagement;
-using Polochon.FeatureManagement.AzureAppConfiguration;
+using Polochon.FeatureManagement.Azure;
 
 var builder = WebApplication.CreateBuilder(args); // or Host.CreateApplicationBuilder(args)
 

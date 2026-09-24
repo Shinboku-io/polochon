@@ -7,7 +7,7 @@ using Polochon.Abstractions.Modules;
 using Polochon.Modules;
 using Xunit;
 
-namespace Polochon.FeatureManagement.AzureAppConfiguration.Tests
+namespace Polochon.FeatureManagement.Azure.Tests
 {
     /// <summary>
     /// Tests for <see cref="ServiceRegister"/>. None of them reach a real Azure App Configuration store.

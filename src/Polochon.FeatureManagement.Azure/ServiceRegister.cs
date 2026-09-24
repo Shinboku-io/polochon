@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.FeatureManagement;
 
-namespace Polochon.FeatureManagement.AzureAppConfiguration
+namespace Polochon.FeatureManagement.Azure
 {
     /// <summary>
     /// Makes an Azure App Configuration store the source of the host's feature definitions. Host-level

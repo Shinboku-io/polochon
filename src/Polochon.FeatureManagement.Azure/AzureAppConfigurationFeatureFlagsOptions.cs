@@ -2,7 +2,7 @@ using Azure.Core;
 using Azure.Identity;
 using Microsoft.Extensions.Configuration.AzureAppConfiguration;
 
-namespace Polochon.FeatureManagement.AzureAppConfiguration
+namespace Polochon.FeatureManagement.Azure
 {
     /// <summary>
     /// Connects the host's feature definitions to an Azure App Configuration store. Everything here -

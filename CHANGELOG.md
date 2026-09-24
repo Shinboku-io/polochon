@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   which reads definitions from configuration and reuses any feature management registered earlier
   (e.g. by the Azure App Configuration package) instead of registering it twice.
 - `Polochon` now depends on `Microsoft.FeatureManagement`.
-- New package `Polochon.FeatureManagement.AzureAppConfiguration`: `AddAzureAppConfigurationFeatureFlags()`
+- New package `Polochon.FeatureManagement.Azure`: `AddAzureAppConfigurationFeatureFlags()`
   on the host builder loads feature flags from an Azure App Configuration store (endpoint + Managed
   Identity or connection string, per-environment label, optional Key Vault-backed settings) and
   refreshes them in the background. Host-level only: modules keep using `WithFeatureManagement()`.

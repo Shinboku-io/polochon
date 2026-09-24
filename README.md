@@ -16,6 +16,7 @@ Open source .NET kernel for building modular monoliths: a CQRS mediator, isolate
 | `Polochon.Abstractions` | Shared contracts with no implementation: the CQRS interfaces (`IQuery`, `ICommand`, handlers, ...), the module interfaces (`IModularModule`, `IModularModuleBuilder<TModule>`), and the domain-modeling base types (`Entity<TIdentifier>`, `ValueObject`, `IDomainEvent`/`IIntegrationEvent`). Reference this from a module's application/domain layer if it shouldn't depend on the kernel implementation. |
 | `Polochon.Serilog` | Swaps Polochon's default console logging for Serilog - at the host level, or independently per module. |
 | `Polochon.Persistence.SqlServer` | Swaps a module's default EF Core provider for SQL Server - module-level only, since (unlike logging) there's no host-level persistence default to swap. |
+| `Polochon.Validation.FluentValidation` | Runs a module's FluentValidation validators as Polochon message validators, reporting the first failure as a `ResultCode`. |
 
 ## Quickstart
 
@@ -229,6 +230,39 @@ await unitOfWork.CommitAsync(cancellationToken); // dispatches domain events, sa
 
 An aggregate that needs to react to its own deletion implements `IRaiseEventOnDelete`; `CommitAsync` calls `OnDelete()` on every entity tracked as `Deleted` before collecting events, so the event it raises there is dispatched normally.
 
+### Reading through a repository
+
+`GenericRepository<T, TIdentifier>` implements `IReadOnlyRepository<,>` and `IMutableRepository<,>` over the unit of work's context. Derive from it once per aggregate root, passing a selector for the mapped identifier property:
+
+```csharp
+internal sealed class OrderRepository : GenericRepository<Order, OrderId>, IOrderRepository
+{
+    public OrderRepository(OrdersDbContext context)
+        : base(context, order => order.Identifier)
+    {
+    }
+}
+```
+
+Every repository method takes a `CancellationToken`, with no default value - pass the one your handler received, so that a caller giving up (an aborted HTTP request, a closed Blazor circuit, a timeout) also cancels the database round trip instead of letting it run to completion for nobody:
+
+```csharp
+public sealed class GetOrderQueryHandler : IQueryHandler<GetOrderQuery, Order?>
+{
+    private readonly IReadOnlyRepository<Order, OrderId> orders;
+
+    public GetOrderQueryHandler(IReadOnlyRepository<Order, OrderId> orders)
+    {
+        this.orders = orders;
+    }
+
+    public async ValueTask<Order?> HandleAsync(GetOrderQuery query, CancellationToken cancellationToken)
+        => await orders.GetByIdAsync(query.OrderId, cancellationToken);
+}
+```
+
+The token reaches every query EF Core sends for `GetByIdAsync`, `GetAsync`, `QueryAsync` and both `ListAsync` overloads (the paged one cancels its count query and its page query alike). `GetAsync` and the non-paged `ListAsync` also look through entities added in the current unit of work but not saved yet; that part runs in memory and isn't cancellable - there's nothing to cancel. A cancelled read throws `OperationCanceledException`, which propagates to the caller: commands returning a `CommandResult` rethrow it too, instead of reporting it as `-1`/`UNEXPECTED_ERROR`.
+
 ### Swapping a module's provider for SQL Server
 
 ```sh
@@ -263,7 +297,7 @@ Integration events are published to `IOutbox`, whose default implementation (`Me
 
 ## Repository layout
 
-- `src/`: production projects (`Polochon`, `Polochon.Abstractions`, `Polochon.Serilog`, `Polochon.Persistence.SqlServer`).
+- `src/`: production projects (`Polochon`, `Polochon.Abstractions`, `Polochon.Serilog`, `Polochon.Persistence.SqlServer`, `Polochon.Messaging.AzureQueue`, `Polochon.Validation.FluentValidation`).
 - `tests/`: test projects.
 - `samples/`: package usage samples (placeholder for now).
 - `docs/`: public technical documentation (placeholder for now).

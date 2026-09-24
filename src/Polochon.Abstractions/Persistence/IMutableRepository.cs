@@ -15,31 +15,31 @@ namespace Polochon.Abstractions.Persistence
         /// Adds a new aggregate root to the store.
         /// </summary>
         /// <param name="entity">The aggregate root to add.</param>
-        /// <param name="token">A token to cancel the operation.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The added aggregate root.</returns>
-        Task<TAggregateRoot> AddAsync(TAggregateRoot entity, CancellationToken token);
+        Task<TAggregateRoot> AddAsync(TAggregateRoot entity, CancellationToken cancellationToken);
 
         /// <summary>
         /// Adds several new aggregate roots to the store.
         /// </summary>
-        /// <param name="entity">The aggregate roots to add.</param>
-        /// <param name="token">A token to cancel the operation.</param>
+        /// <param name="entities">The aggregate roots to add.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The added aggregate roots.</returns>
-        Task<TAggregateRoot[]> AddRangeAsync(TAggregateRoot[] entity, CancellationToken token);
+        Task<TAggregateRoot[]> AddRangeAsync(TAggregateRoot[] entities, CancellationToken cancellationToken);
 
         /// <summary>
         /// Removes an aggregate root from the store.
         /// </summary>
         /// <param name="entity">The aggregate root to remove.</param>
-        /// <param name="token">A token to cancel the operation.</param>
-        Task DeleteAsync(TAggregateRoot entity, CancellationToken token);
+        /// <param name="cancellationToken">The cancellation token.</param>
+        Task DeleteAsync(TAggregateRoot entity, CancellationToken cancellationToken);
 
         /// <summary>
         /// Updates an existing aggregate root in the store.
         /// </summary>
         /// <param name="entity">The aggregate root to update.</param>
-        /// <param name="token">A token to cancel the operation.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The updated aggregate root.</returns>
-        Task<TAggregateRoot> UpdateAsync(TAggregateRoot entity, CancellationToken token);
+        Task<TAggregateRoot> UpdateAsync(TAggregateRoot entity, CancellationToken cancellationToken);
     }
 }

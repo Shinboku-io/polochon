@@ -53,11 +53,11 @@ namespace Polochon.Persistence
         protected virtual IQueryable<T> ApplyIncludes(IQueryable<T> query) => query;
 
         /// <inheritdoc/>
-        public Task<T?> GetByIdAsync(TIdentifier id)
+        public Task<T?> GetByIdAsync(TIdentifier id, CancellationToken cancellationToken)
         {
             var equals = Expression.Equal(idSelector.Body, Expression.Constant(id, typeof(TIdentifier)));
             var predicate = Expression.Lambda<Func<T, bool>>(equals, idSelector.Parameters);
-            return GetAsync(new IdEqualsSpecification(predicate));
+            return GetAsync(new IdEqualsSpecification(predicate), cancellationToken);
         }
 
         private sealed class IdEqualsSpecification : FilterSpecification<T, TIdentifier>
@@ -69,20 +69,20 @@ namespace Polochon.Persistence
         }
 
         /// <inheritdoc/>
-        public async Task<IReadOnlyList<TResult>> QueryAsync<TResult>(IRepositoryQuery<T, TResult> query)
+        public async Task<IReadOnlyList<TResult>> QueryAsync<TResult>(IRepositoryQuery<T, TResult> query, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(query);
 
             var built = query.BuildQuery(set.AsQueryable());
 
-            return await built.ToListAsync().ConfigureAwait(false);
+            return await built.ToListAsync(cancellationToken).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        public async Task<IReadOnlyList<T>> ListAsync(ISpecification<T, TIdentifier> specification)
+        public async Task<IReadOnlyList<T>> ListAsync(ISpecification<T, TIdentifier> specification, CancellationToken cancellationToken)
         {
             var filteredQuery = specification.BuildQuery(ApplyIncludes(set.AsQueryable()));
-            var result = await filteredQuery.ToListAsync();
+            var result = await filteredQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
             // Include local entities that match the specification and are not already in the result.
             // LINQ-to-Objects only, since Local doesn't support EF's async query translation.
@@ -93,11 +93,11 @@ namespace Polochon.Persistence
         }
 
         /// <inheritdoc/>
-        public async Task<PagedResult<T>> ListAsync(IPagedSpecification<T, TIdentifier> pagedSpecification)
+        public async Task<PagedResult<T>> ListAsync(IPagedSpecification<T, TIdentifier> pagedSpecification, CancellationToken cancellationToken)
         {
             var query = pagedSpecification.BuildQuery(ApplyIncludes(set.AsQueryable()));
 
-            int totalElements = await query.CountAsync();
+            int totalElements = await query.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply sorting: the first clause is the primary sort key, subsequent clauses break ties.
             IOrderedQueryable<T>? ordered = null;
@@ -111,17 +111,18 @@ namespace Polochon.Persistence
             var result = await sortedQuery
                 .Skip(pagedSpecification.Skip)
                 .Take(pagedSpecification.Take)
-                .ToListAsync();
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
 
             return new PagedResult<T>(result, totalElements);
         }
 
         /// <inheritdoc/>
-        public async Task<T?> GetAsync(ISpecification<T, TIdentifier> specification)
+        public async Task<T?> GetAsync(ISpecification<T, TIdentifier> specification, CancellationToken cancellationToken)
         {
             var filteredQuery = specification.BuildQuery(ApplyIncludes(set.AsQueryable()));
 
-            var data = await filteredQuery.FirstOrDefaultAsync();
+            var data = await filteredQuery.FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
             if (data is not null)
             {
@@ -135,25 +136,25 @@ namespace Polochon.Persistence
         }
 
         /// <inheritdoc/>
-        public async Task<T> AddAsync(T entity, CancellationToken token)
+        public async Task<T> AddAsync(T entity, CancellationToken cancellationToken)
         {
-            _ = await set.AddAsync(entity, token);
+            _ = await set.AddAsync(entity, cancellationToken);
             return entity;
         }
 
         /// <inheritdoc/>
-        public async Task<T[]> AddRangeAsync(T[] entity, CancellationToken token)
+        public async Task<T[]> AddRangeAsync(T[] entities, CancellationToken cancellationToken)
         {
-            await set.AddRangeAsync(entity, token);
-            return entity;
+            await set.AddRangeAsync(entities, cancellationToken);
+            return entities;
         }
 
         /// <inheritdoc/>
-        public Task DeleteAsync(T entity, CancellationToken token)
+        public Task DeleteAsync(T entity, CancellationToken cancellationToken)
         {
-            if (token.IsCancellationRequested)
+            if (cancellationToken.IsCancellationRequested)
             {
-                return Task.FromCanceled(token);
+                return Task.FromCanceled(cancellationToken);
             }
 
             _ = set.Remove(entity);
@@ -161,13 +162,13 @@ namespace Polochon.Persistence
         }
 
         /// <inheritdoc/>
-        public Task<T> UpdateAsync(T entity, CancellationToken token)
+        public Task<T> UpdateAsync(T entity, CancellationToken cancellationToken)
         {
             var entry = set.Entry(entity);
 
-            if (token.IsCancellationRequested)
+            if (cancellationToken.IsCancellationRequested)
             {
-                return Task.FromCanceled<T>(token);
+                return Task.FromCanceled<T>(cancellationToken);
             }
 
             if (entry.State == EntityState.Unchanged)

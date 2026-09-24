@@ -96,7 +96,7 @@ namespace Polochon.Persistence
         /// pending deletes, dispatches domain events, and collects integration events for
         /// publishing after the commit succeeds. Override to add steps to this phase.
         /// </summary>
-        protected virtual async Task PreSaveChangesAsync(CancellationToken token = default)
+        protected virtual async Task PreSaveChangesAsync(CancellationToken cancellationToken = default)
         {
             // Let entities being deleted raise their events before the change tracker forgets them.
             DoOnDeleteProcessing();
@@ -104,7 +104,7 @@ namespace Polochon.Persistence
             // Dispatched synchronously, in-process, before the changes are saved: domain event
             // handlers are part of the same unit of work and can still influence what gets
             // persisted (e.g. by mutating another aggregate).
-            await DispatchDomainEventsAsync(token);
+            await DispatchDomainEventsAsync(cancellationToken);
 
             // Collected last so integration events raised by cascading domain event handlers
             // above are captured too. Not published yet - only once the transaction commits.
@@ -116,14 +116,14 @@ namespace Polochon.Persistence
         /// publishes the integration events collected during <see cref="PreSaveChangesAsync"/>.
         /// Override to add steps to this phase.
         /// </summary>
-        protected virtual async Task PostSaveChangesAsync(CancellationToken token = default)
+        protected virtual async Task PostSaveChangesAsync(CancellationToken cancellationToken = default)
         {
             // Only reached once SaveChanges has succeeded: integration events must never be
             // handed to the outbox for a transaction that failed to commit.
-            await PublishIntegrationEventsAsync(token);
+            await PublishIntegrationEventsAsync(cancellationToken);
         }
 
-        private async Task DispatchDomainEventsAsync(CancellationToken token)
+        private async Task DispatchDomainEventsAsync(CancellationToken cancellationToken)
         {
             // Looping instead of a single collect-then-dispatch pass: a handler reacting to one
             // domain event may raise new ones (directly, or by mutating another aggregate). A
@@ -139,7 +139,7 @@ namespace Polochon.Persistence
 
                 foreach (var domainEvent in batch)
                 {
-                    await notificationPublisher.PublishAsync(domainEvent, token);
+                    await notificationPublisher.PublishAsync(domainEvent, cancellationToken);
                 }
             }
         }
@@ -170,11 +170,11 @@ namespace Polochon.Persistence
             integrationEntities.ForEach(entity => entity.Entity.ClearIntegrationEvents());
         }
 
-        private async Task PublishIntegrationEventsAsync(CancellationToken token)
+        private async Task PublishIntegrationEventsAsync(CancellationToken cancellationToken)
         {
             foreach (var integrationEvent in pendingIntegrationEvents)
             {
-                await outbox.PublishMessageAsync(integrationEvent, token);
+                await outbox.PublishMessageAsync(integrationEvent, cancellationToken);
             }
 
             pendingIntegrationEvents.Clear();

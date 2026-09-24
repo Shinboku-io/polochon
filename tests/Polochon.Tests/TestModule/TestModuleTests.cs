@@ -13,14 +13,14 @@ namespace Polochon.Tests.TestModule
     /// </summary>
     public sealed class TestModuleTests : IAsyncLifetime
     {
-        private readonly TestModule _module = new();
+        private readonly TestModule module = new();
 
         /// <summary>
         /// Initializes the module before each test.
         /// </summary>
         public async ValueTask InitializeAsync()
         {
-            await _module.InitializeAsync();
+            await module.InitializeAsync();
         }
 
         /// <summary>
@@ -28,7 +28,7 @@ namespace Polochon.Tests.TestModule
         /// </summary>
         public async ValueTask DisposeAsync()
         {
-            await _module.DisposeAsync();
+            await module.DisposeAsync();
         }
 
         /// <summary>
@@ -59,7 +59,7 @@ namespace Polochon.Tests.TestModule
         public void Module_ResolvesLoggerFactory_WithAProviderAttached()
         {
             // Assert - a logger backed by no provider would report IsEnabled == false
-            var loggerFactory = _module.GetRequiredService<ILoggerFactory>();
+            var loggerFactory = module.GetRequiredService<ILoggerFactory>();
             var logger = loggerFactory.CreateLogger("Polochon.Tests");
             Assert.True(logger.IsEnabled(LogLevel.Information));
         }
@@ -94,7 +94,7 @@ namespace Polochon.Tests.TestModule
 
             // Act - Send query using the IModularModule interface method
             // This is the key test: using SendQueryAsync from IModularModule, not directly accessing Mediator
-            var result = await ((IModularModule)_module).SendQueryAsync(query);
+            var result = await ((IModularModule)module).SendQueryAsync(query);
 
             // Assert
             Assert.NotNull(result);
@@ -120,7 +120,7 @@ namespace Polochon.Tests.TestModule
             var results = new List<TestQueryResult>();
             foreach (var query in queries)
             {
-                var result = await ((IModularModule)_module).SendQueryAsync(query);
+                var result = await ((IModularModule)module).SendQueryAsync(query);
                 results.Add(result);
             }
 
@@ -142,7 +142,7 @@ namespace Polochon.Tests.TestModule
             var query = new TestQuery { Input = "direct test" };
 
             // Act - Use the module's SendQueryAsync method directly
-            var result = await _module.SendQueryAsync(query);
+            var result = await module.SendQueryAsync(query);
 
             // Assert
             Assert.NotNull(result);

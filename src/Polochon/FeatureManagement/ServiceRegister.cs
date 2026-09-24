@@ -55,8 +55,10 @@ namespace Polochon.FeatureManagement
 
         /// <summary>
         /// Adds Microsoft.FeatureManagement to this module's isolated container (<see cref="IFeatureManager"/>,
-        /// <see cref="IVariantFeatureManager"/>, built-in filters...), with its <see cref="IFeatureDefinitionProvider"/>
-        /// forwarding to the host's. Requires the host to register feature management too, e.g.
+        /// <see cref="IVariantFeatureManager"/>, built-in filters...). Its <see cref="IFeatureDefinitionProvider"/>
+        /// exposes the host's flags named <c>{module name}.{flag}</c> under their short name (the host's
+        /// <c>inventory.BulkImport</c> is <c>BulkImport</c> in the <c>inventory</c> module); other flags are
+        /// invisible to the module. Requires the host to register feature management too, e.g.
         /// <c>services.AddPolochon().WithFeatureManagement()</c>; module initialization fails otherwise.
         /// </summary>
         /// <typeparam name="TModule">The module type this builder was created for.</typeparam>
@@ -67,8 +69,9 @@ namespace Polochon.FeatureManagement
 
         /// <summary>
         /// Adds Microsoft.FeatureManagement to this module's isolated container (<see cref="IFeatureManager"/>,
-        /// <see cref="IVariantFeatureManager"/>, built-in filters...), with its <see cref="IFeatureDefinitionProvider"/>
-        /// forwarding to the host's. <paramref name="configureFeatureManagement"/> customizes evaluation
+        /// <see cref="IVariantFeatureManager"/>, built-in filters...). Its <see cref="IFeatureDefinitionProvider"/>
+        /// exposes the host's flags named <c>{module name}.{flag}</c> under their short name; other flags are
+        /// invisible to the module. <paramref name="configureFeatureManagement"/> customizes evaluation
         /// within this module only, e.g. adding a custom feature filter or targeting. Requires the host to
         /// register feature management too, e.g. <c>services.AddPolochon().WithFeatureManagement()</c>; module
         /// initialization fails otherwise.
@@ -96,9 +99,10 @@ namespace Polochon.FeatureManagement
                 configureFeatureManagement(services.AddFeatureManagement());
 
                 // AddFeatureManagement() registers a provider reading IConfiguration, which a module
-                // container does not have (on purpose): replace it with the host forwarder.
+                // container does not have (on purpose): replace it with a view of the host's definitions
+                // restricted to this module's flags ({module name}.{flag}).
                 services.RemoveAll<IFeatureDefinitionProvider>();
-                services.AddSingleton<IFeatureDefinitionProvider>(new HostFeatureDefinitionProvider(hostProvider));
+                services.AddSingleton<IFeatureDefinitionProvider>(new HostFeatureDefinitionProvider(hostProvider, module.Name));
             });
         }
     }

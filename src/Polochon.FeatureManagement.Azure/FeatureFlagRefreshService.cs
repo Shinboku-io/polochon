@@ -11,29 +11,29 @@ namespace Polochon.FeatureManagement.Azure
     /// </summary>
     internal sealed class FeatureFlagRefreshService : BackgroundService
     {
-        private readonly IConfigurationRefresherProvider _refresherProvider;
-        private readonly FeatureFlagRefreshSchedule _schedule;
-        private readonly TimeProvider _timeProvider;
-        private PeriodicTimer? _timer;
+        private readonly IConfigurationRefresherProvider refresherProvider;
+        private readonly FeatureFlagRefreshSchedule schedule;
+        private readonly TimeProvider timeProvider;
+        private PeriodicTimer? timer;
 
         public FeatureFlagRefreshService(IConfigurationRefresherProvider refresherProvider, FeatureFlagRefreshSchedule schedule, TimeProvider timeProvider)
         {
-            _refresherProvider = refresherProvider;
-            _schedule = schedule;
-            _timeProvider = timeProvider;
+            this.refresherProvider = refresherProvider;
+            this.schedule = schedule;
+            this.timeProvider = timeProvider;
         }
 
         public override Task StartAsync(CancellationToken cancellationToken)
         {
             // Created here rather than in ExecuteAsync, which BackgroundService runs on the thread pool:
             // the refresh schedule then starts exactly when the host starts this service.
-            _timer = new PeriodicTimer(_schedule.Interval, _timeProvider);
+            timer = new PeriodicTimer(schedule.Interval, timeProvider);
             return base.StartAsync(cancellationToken);
         }
 
         public override void Dispose()
         {
-            _timer?.Dispose();
+            timer?.Dispose();
             base.Dispose();
         }
 
@@ -41,9 +41,9 @@ namespace Polochon.FeatureManagement.Azure
         {
             try
             {
-                while (await _timer!.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
+                while (await timer!.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
                 {
-                    foreach (var refresher in _refresherProvider.Refreshers)
+                    foreach (var refresher in refresherProvider.Refreshers)
                     {
                         // TryRefreshAsync, not RefreshAsync: a failed refresh (store unreachable,
                         // throttled...) is logged by the provider and keeps the last known flags, rather

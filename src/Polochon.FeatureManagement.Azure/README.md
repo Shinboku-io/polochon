@@ -60,7 +60,7 @@ internal sealed class ListItemQueryHandler : IQueryHandler<ListItemQuery, IReadO
 
     public async ValueTask<IReadOnlyList<Item>> HandleAsync(ListItemQuery request, CancellationToken cancellationToken)
     {
-        var ascending = await featureManager.IsEnabledAsync("Inventory.DefaultSortDescending")
+        var ascending = await featureManager.IsEnabledAsync("DefaultSortDescending")
             ? false
             : request.Ascending;
         var page = await repository.ListAsync(new ListItemsSpecification(request.SortBy, ascending), cancellationToken);
@@ -68,6 +68,8 @@ internal sealed class ListItemQueryHandler : IQueryHandler<ListItemQuery, IReadO
     }
 }
 ```
+
+The module reads `DefaultSortDescending`, which the store holds as `inventory.DefaultSortDescending`. Each module only sees the flags named after it (`{module name}.{flag}`) and reads them by their short name, so name flags in the store with the module's prefix.
 
 ## Samples
 
@@ -127,12 +129,12 @@ Flags with no label are loaded first, then flags carrying the label override the
 
 ```sh
 # On everywhere by default...
-az appconfig feature set   --name my-store --feature Inventory.BulkImport --yes
-az appconfig feature enable --name my-store --feature Inventory.BulkImport --yes
+az appconfig feature set   --name my-store --feature inventory.BulkImport --yes
+az appconfig feature enable --name my-store --feature inventory.BulkImport --yes
 
 # ...except in Production.
-az appconfig feature set    --name my-store --feature Inventory.BulkImport --label Production --yes
-az appconfig feature disable --name my-store --feature Inventory.BulkImport --label Production --yes
+az appconfig feature set    --name my-store --feature inventory.BulkImport --label Production --yes
+az appconfig feature disable --name my-store --feature inventory.BulkImport --label Production --yes
 ```
 
 ### Keep appsettings as a fallback, or start without the store
@@ -142,8 +144,8 @@ Flags from the store land in the host's configuration in Microsoft's `feature_ma
 ```json
 {
   "FeatureManagement": {
-    "Inventory.BulkImport": false,
-    "Inventory.LocalOnlyExperiment": true
+    "inventory.BulkImport": false,
+    "inventory.LocalOnlyExperiment": true
   }
 }
 ```
@@ -162,7 +164,7 @@ options.Optional = true;
 Variants are defined in the store and evaluated in the module through `IVariantFeatureManager`:
 
 ```csharp
-var variant = await variantFeatureManager.GetVariantAsync("Inventory.ListPageSize", cancellationToken);
+var variant = await variantFeatureManager.GetVariantAsync("ListPageSize", cancellationToken);
 var pageSize = variant?.Configuration?.Get<int>() ?? 20;
 ```
 
@@ -188,7 +190,7 @@ builder.Services.AddInventory()
     .WithFeatureManagement(featureManagement => featureManagement.AddFeatureFilter<SchoolsFilter>());
 
 // Module
-var enabled = await featureManager.IsEnabledAsync("Inventory.BulkImport", new SchoolContext { Code = "LYC-042" });
+var enabled = await featureManager.IsEnabledAsync("BulkImport", new SchoolContext { Code = "LYC-042" });
 ```
 
 The built-in filters (`Microsoft.Percentage`, `Microsoft.TimeWindow`) are available in every module without registration.

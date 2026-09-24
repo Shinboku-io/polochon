@@ -119,7 +119,8 @@ This repository is part of a multi-repo workspace. Use workspace-level Taskfile.
 - **Naming**: 
   - PascalCase for public types and members
   - camelCase for parameters and local variables
-  - camelCase for private fields
+  - camelCase for private fields, **never prefixed with an underscore** (StyleCop SA1309, enforced as a build warning in `.editorconfig`). Assign same-named constructor parameters with `this.field = field;` and use the bare name elsewhere
+  - PascalCase for `static readonly` fields (SA1311)
   - I prefix for interfaces
 - **Async**: Use async/await pattern throughout
 - **Nullability**: Enable nullable reference types

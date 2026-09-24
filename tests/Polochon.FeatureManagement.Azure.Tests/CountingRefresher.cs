@@ -7,9 +7,9 @@ namespace Polochon.FeatureManagement.Azure.Tests
     /// </summary>
     internal sealed class CountingRefresher : IConfigurationRefresher
     {
-        private int _refreshCount;
+        private int refreshCount;
 
-        public int RefreshCount => Volatile.Read(ref _refreshCount);
+        public int RefreshCount => Volatile.Read(ref refreshCount);
 
         public Uri AppConfigurationEndpoint { get; } = new("https://polochon-test.invalid");
 
@@ -18,7 +18,7 @@ namespace Polochon.FeatureManagement.Azure.Tests
 
         public Task<bool> TryRefreshAsync(CancellationToken cancellationToken = default)
         {
-            _ = Interlocked.Increment(ref _refreshCount);
+            _ = Interlocked.Increment(ref refreshCount);
             return Task.FromResult(true);
         }
 

@@ -120,7 +120,7 @@ namespace Polochon.FeatureManagement.Azure.Tests
         {
             // Arrange
             var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
-            _ = builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["FeatureManagement:Beta"] = "true" });
+            _ = builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["FeatureManagement:fake.Beta"] = "true" });
             _ = builder.Services.AddModule<FakeModule>().WithFeatureManagement();
 
             // Act

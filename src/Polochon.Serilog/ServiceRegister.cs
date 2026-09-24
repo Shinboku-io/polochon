@@ -1,5 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using Polochon.Abstractions.Modules;
 using Serilog;
 using Serilog.Events;
@@ -30,17 +32,25 @@ namespace Polochon.Serilog
         /// is invoked so consumers can override or extend it. The resulting logger also becomes
         /// the global <see cref="Log.Logger"/>.
         /// </summary>
+        /// <remarks>
+        /// Events also reach every other <see cref="ILoggerProvider"/> registered in the container
+        /// (e.g. OpenTelemetry's), except Polochon's base console provider, which is removed: Serilog's
+        /// own console sink replaces it.
+        /// </remarks>
         /// <param name="services">The service collection to register with.</param>
         /// <param name="configureLogger">A callback used to customize the Serilog configuration.</param>
         public static IServiceCollection WithSerilog(this IServiceCollection services, Action<LoggerConfiguration> configureLogger)
         {
             ArgumentNullException.ThrowIfNull(configureLogger);
 
-            return services.AddSerilog((serviceProvider, loggerConfiguration) =>
-            {
-                ApplyBaseConfiguration(serviceProvider, loggerConfiguration);
-                configureLogger(loggerConfiguration);
-            });
+            RemoveBaseConsoleProvider(services);
+            return services.AddSerilog(
+                (serviceProvider, loggerConfiguration) =>
+                {
+                    ApplyBaseConfiguration(serviceProvider, loggerConfiguration);
+                    configureLogger(loggerConfiguration);
+                },
+                writeToProviders: true);
         }
 
         /// <summary>
@@ -63,6 +73,11 @@ namespace Polochon.Serilog
         /// independent Serilog logger instance, so multiple modules configuring Serilog differently do
         /// not interfere with one another.
         /// </summary>
+        /// <remarks>
+        /// Events also reach every other <see cref="ILoggerProvider"/> registered in the module's container
+        /// (e.g. OpenTelemetry's, through its module-level <c>WithOpenTelemetry()</c>), except Polochon's base
+        /// console provider, which is removed: Serilog's own console sink replaces it.
+        /// </remarks>
         /// <typeparam name="TModule">The concrete module type the builder was created for.</typeparam>
         /// <param name="builder">The module builder to configure.</param>
         /// <param name="configureLogger">A callback used to customize the module's Serilog configuration.</param>
@@ -71,14 +86,34 @@ namespace Polochon.Serilog
         {
             ArgumentNullException.ThrowIfNull(configureLogger);
 
-            return builder.ConfigureModule((services, module, hostServices) => services.AddSerilog(
-                (serviceProvider, loggerConfiguration) =>
+            return builder.ConfigureModule((services, module, hostServices) =>
+            {
+                RemoveBaseConsoleProvider(services);
+                _ = services.AddSerilog(
+                    (serviceProvider, loggerConfiguration) =>
+                    {
+                        ApplyBaseConfiguration(serviceProvider, loggerConfiguration);
+                        _ = loggerConfiguration.Enrich.WithProperty("Module", module.Name);
+                        configureLogger(loggerConfiguration);
+                    },
+                    preserveStaticLogger: true,
+                    writeToProviders: true);
+            });
+        }
+
+        /// <summary>
+        /// Removes the console provider Polochon's base logging registers: with <c>writeToProviders</c>,
+        /// Serilog would otherwise hand it every event its own console sink already writes.
+        /// </summary>
+        private static void RemoveBaseConsoleProvider(IServiceCollection services)
+        {
+            for (var index = services.Count - 1; index >= 0; index--)
+            {
+                if (services[index].ServiceType == typeof(ILoggerProvider) && services[index].ImplementationType == typeof(ConsoleLoggerProvider))
                 {
-                    ApplyBaseConfiguration(serviceProvider, loggerConfiguration);
-                    _ = loggerConfiguration.Enrich.WithProperty("Module", module.Name);
-                    configureLogger(loggerConfiguration);
-                },
-                preserveStaticLogger: true));
+                    services.RemoveAt(index);
+                }
+            }
         }
 
         /// <summary>

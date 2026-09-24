@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
+using Polochon;
 using Polochon.Abstractions.Modules;
 using Polochon.Modules;
 using Serilog;
@@ -189,6 +191,57 @@ namespace Polochon.Serilog.Tests
 
             // Assert
             Assert.Same(builder, result);
+        }
+
+        /// <summary>
+        /// Tests that with host-level Serilog, other logging providers still receive events, while
+        /// Polochon's base console provider is removed so the console does not print every event twice.
+        /// </summary>
+        [Fact(DisplayName = "Host WithSerilog writes to other providers but drops the base console provider")]
+        public void HostWithSerilogWritesToOtherProvidersButDropsBaseConsoleProvider()
+        {
+            // Arrange
+            var capture = new CapturingLoggerProvider();
+            var services = new ServiceCollection();
+            _ = services.AddPolochon();
+            _ = services.AddSingleton<ILoggerProvider>(capture);
+
+            // Act
+            _ = services.WithSerilog();
+            using var provider = services.BuildServiceProvider();
+            provider.GetRequiredService<ILoggerFactory>().CreateLogger("Polochon.Serilog.Tests").LogInformation("host event");
+
+            // Assert
+            Assert.Contains("host event", capture.Messages);
+            Assert.DoesNotContain(provider.GetServices<ILoggerProvider>(), loggerProvider => loggerProvider is ConsoleLoggerProvider);
+        }
+
+        /// <summary>
+        /// Tests that with module-level Serilog, other providers registered in the module - before or after
+        /// WithSerilog() - still receive events, while the base console provider is removed.
+        /// </summary>
+        [Fact(DisplayName = "Module WithSerilog writes to other providers but drops the base console provider")]
+        public async Task ModuleWithSerilogWritesToOtherProvidersButDropsBaseConsoleProvider()
+        {
+            // Arrange
+            var registeredBefore = new CapturingLoggerProvider();
+            var registeredAfter = new CapturingLoggerProvider();
+            var services = new ServiceCollection();
+            _ = services.AddModule<FakeModule>()
+                .ConfigureModule((moduleServices, _, _) => moduleServices.AddSingleton<ILoggerProvider>(registeredBefore))
+                .WithSerilog()
+                .ConfigureModule((moduleServices, _, _) => moduleServices.AddSingleton<ILoggerProvider>(registeredAfter));
+            using var host = services.BuildServiceProvider();
+            var module = (FakeModule)host.GetRequiredService<IModularModule>();
+            await module.InitializeAsync();
+
+            // Act
+            module.GetRequiredService<ILoggerFactory>().CreateLogger("Polochon.Serilog.Tests").LogInformation("module event");
+
+            // Assert
+            Assert.Contains("module event", registeredBefore.Messages);
+            Assert.Contains("module event", registeredAfter.Messages);
+            Assert.DoesNotContain(module.GetRequiredService<IEnumerable<ILoggerProvider>>(), loggerProvider => loggerProvider is ConsoleLoggerProvider);
         }
     }
 }

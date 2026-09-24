@@ -212,6 +212,9 @@ dotnet_diagnostic.IDE0304.severity = warning
 dotnet_diagnostic.IDE0305.severity = suggestion
 dotnet_diagnostic.SA1300.severity = warning
 
+# SA1309: Field names must not begin with an underscore (private fields are camelCase, e.g. this.logger = logger)
+dotnet_diagnostic.SA1309.severity = warning
+
 # IDE0290: Utiliser le constructeur principal
 dotnet_diagnostic.IDE0290.severity = silent
 csharp_prefer_system_threading_lock = true:suggestion

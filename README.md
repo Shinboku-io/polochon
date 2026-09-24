@@ -15,6 +15,8 @@ Open source .NET kernel for building modular monoliths: a CQRS mediator, isolate
 | `Polochon` | The core kernel: the `IPolochonDispatcher` mediator, `ModuleBase` (isolated per-module DI container), module registration (`AddModule<TModule>()`), base logging, per-module telemetry (traces and metrics of every command and query), module feature flags (`WithFeatureManagement()`), and the EF Core `UnitOfWork<TContext>`/`GenericRepository<T, TIdentifier>` persistence layer. |
 | `Polochon.Abstractions` | Shared contracts with no implementation: the CQRS interfaces (`IQuery`, `ICommand`, handlers, ...), the module interfaces (`IModularModule`, `IModularModuleBuilder<TModule>`), and the domain-modeling base types (`Entity<TIdentifier>`, `ValueObject`, `IDomainEvent`/`IIntegrationEvent`). Reference this from a module's application/domain layer if it shouldn't depend on the kernel implementation. |
 | `Polochon.FeatureManagement.Azure` | Makes an Azure App Configuration store the source of the host's feature flags (endpoint, identity, labels, refresh, Key Vault) - host-level only, so none of that plumbing reaches modules. |
+| `Polochon.Telemetry.OpenTelemetry` | Exports the host's and every module's traces, metrics and logs through OpenTelemetry (OTLP, e.g. to the .NET Aspire dashboard or a collector, and console). |
+| `Polochon.Telemetry.AzureMonitor` | Adds Azure Monitor (Application Insights) as an exporter of that OpenTelemetry pipeline. |
 | `Polochon.Serilog` | Swaps Polochon's default console logging for Serilog - at the host level, or independently per module. |
 | `Polochon.Persistence.SqlServer` | Swaps a module's default EF Core provider for SQL Server - module-level only, since (unlike logging) there's no host-level persistence default to swap. |
 | `Polochon.Validation.FluentValidation` | Runs a module's FluentValidation validators as Polochon message validators, reporting the first failure as a `ResultCode`. |
@@ -167,6 +169,8 @@ builder.Services.AddGreeting().WithSerilog();
 
 Each module's Serilog logger is fully independent from the host's and from every other module's - configuring one module's logging never affects another module or the host, and it never touches the global `Serilog.Log.Logger`.
 
+At either level, Serilog still hands every event to the other logging providers registered in the same container, such as OpenTelemetry's (see [Telemetry](#telemetry)). Polochon's base console provider is the exception: `WithSerilog()` removes it, since Serilog's own console sink replaces it.
+
 ## Configuring a module directly
 
 `AddModule<TModule>()` (and any domain-specific wrapper built on it, like `AddGreeting()` above) returns an `IModularModuleBuilder<TModule>`. Beyond what `Polochon.Serilog` uses it for, any caller can queue their own configuration against the module's isolated container, with the actual module instance handed back:
@@ -211,7 +215,19 @@ internal sealed class GreetQueryHandler : IQueryHandler<GreetQuery, string>
 }
 ```
 
-`WithFeatureManagement()` gives the module an `IFeatureDefinitionProvider` that forwards to the host's, so the module never sees the host's `IConfiguration`, endpoints or credentials. Definitions are read through on each evaluation, so a configuration reload on the host reaches every module. Feature filters, targeting and variants are still evaluated inside the module: `WithFeatureManagement(fm => fm.AddFeatureFilter<MyFilter>())` adds a filter to that module only. If the host has not registered feature management, module initialization fails at startup, naming the module.
+Each module has its own flag namespace. On the host, a module's flags are named `{module name}.{flag}`; the module reads them by their short name. The `greeting` module above evaluates `FriendlyGreeting`, defined on the host as:
+
+```json
+{
+  "FeatureManagement": {
+    "greeting.FriendlyGreeting": true
+  }
+}
+```
+
+A module can't see other modules' flags, or flags with no module prefix, so two modules can use the same short name without colliding. The prefix is matched ignoring case.
+
+`WithFeatureManagement()` gives the module an `IFeatureDefinitionProvider` restricted to its own flags, so the module never sees the host's `IConfiguration`, endpoints or credentials. Definitions are read on each evaluation, so a configuration reload on the host reaches every module. Feature filters, targeting and variants are still evaluated inside the module: `WithFeatureManagement(fm => fm.AddFeatureFilter<MyFilter>())` adds a filter to that module only. If the host has not registered feature management, module initialization fails at startup, naming the module.
 
 To load the host's flags from Azure App Configuration instead, see [`Polochon.FeatureManagement.Azure`](src/Polochon.FeatureManagement.Azure/README.md) - modules do not change.
 
@@ -266,6 +282,25 @@ internal sealed class SmtpProxy : ExternalResourceProxy<SmtpClient>
 ```
 
 Exporters are configured once, on the host, and collect every module by name (`PolochonTelemetry.AllModulesSourceName`, i.e. `Polochon.Modules.*`). Tag and metric names are constants on `PolochonTelemetry`.
+
+### Exporting with OpenTelemetry
+
+```sh
+dotnet add package Polochon.Telemetry.OpenTelemetry
+```
+
+```csharp
+builder.Services.AddPolochon()
+    .WithOpenTelemetry(telemetry => telemetry.ServiceName = builder.Environment.ApplicationName);
+
+builder.Services.AddGreeting().WithOpenTelemetry();
+```
+
+- **Traces and metrics** of every module need only the host-level `WithOpenTelemetry()`: it subscribes to `Polochon.Modules.*`.
+- **Logs** need the module-level `WithOpenTelemetry()` too, since each module has its own logger factory. It sends the module's logs, tagged `polochon.module`, through the host's single pipeline. It works alongside `WithSerilog()`.
+- **Exporters:** OTLP is on as soon as `OTEL_EXPORTER_OTLP_ENDPOINT` is set, as .NET Aspire does. For Azure Monitor, add `Polochon.Telemetry.AzureMonitor` and chain `.WithAzureMonitor()`.
+
+See the [`Polochon.Telemetry.OpenTelemetry` README](src/Polochon.Telemetry.OpenTelemetry/README.md) for options and samples.
 
 ## Persistence: unit of work, domain and integration events
 

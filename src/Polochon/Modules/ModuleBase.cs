@@ -18,10 +18,10 @@ namespace Polochon.Modules
     /// </summary>
     public abstract class ModuleBase : IModularModule
     {
-        private readonly ServiceCollection _serviceCollection;
-        private readonly List<Action<IServiceCollection, ModuleBase>> _externalConfigurators = [];
-        private IServiceProvider? _serviceProvider;
-        private bool _disposed;
+        private readonly ServiceCollection serviceCollection;
+        private readonly List<Action<IServiceCollection, ModuleBase>> externalConfigurators = [];
+        private IServiceProvider? serviceProvider;
+        private bool disposed;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ModuleBase"/> class.
@@ -31,8 +31,8 @@ namespace Polochon.Modules
         protected ModuleBase(string moduleName, Assembly[] types)
         {
             Name = moduleName;
-            _serviceCollection = new ServiceCollection();
-            ConfigureServices(_serviceCollection, types);
+            serviceCollection = new ServiceCollection();
+            ConfigureServices(serviceCollection, types);
         }
 
         /// <inheritdoc/>
@@ -43,11 +43,11 @@ namespace Polochon.Modules
         {
             get
             {
-                if (_serviceProvider is null)
+                if (serviceProvider is null)
                 {
                     throw new InvalidOperationException($"Module '{Name}' has not been initialized. Call Initialize() first.");
                 }
-                return _serviceProvider;
+                return serviceProvider;
             }
         }
 
@@ -143,30 +143,30 @@ namespace Polochon.Modules
         /// (e.g. from a Polochon extension package such as Polochon.Serilog).
         /// </summary>
         /// <param name="configure">A callback that configures the module's isolated service collection, given the module instance.</param>
-        internal void AddConfigurator(Action<IServiceCollection, ModuleBase> configure) => _externalConfigurators.Add(configure);
+        internal void AddConfigurator(Action<IServiceCollection, ModuleBase> configure) => externalConfigurators.Add(configure);
 
         /// <inheritdoc/>
         public void Initialize(IModuleConfiguration? configuration = null)
         {
-            ConfigureAdditionalServices(_serviceCollection);
+            ConfigureAdditionalServices(serviceCollection);
             ApplyExternalConfigurators();
-            _serviceProvider = _serviceCollection.BuildServiceProvider();
+            serviceProvider = serviceCollection.BuildServiceProvider();
         }
 
         /// <inheritdoc/>
         public async Task InitializeAsync(IModuleConfiguration? configuration = null)
         {
-            ConfigureAdditionalServices(_serviceCollection);
+            ConfigureAdditionalServices(serviceCollection);
             ApplyExternalConfigurators();
-            _serviceProvider = _serviceCollection.BuildServiceProvider();
+            serviceProvider = serviceCollection.BuildServiceProvider();
             await OnInitializedAsync().ConfigureAwait(false);
         }
 
         private void ApplyExternalConfigurators()
         {
-            foreach (var configure in _externalConfigurators)
+            foreach (var configure in externalConfigurators)
             {
-                configure(_serviceCollection, this);
+                configure(serviceCollection, this);
             }
         }
 
@@ -220,20 +220,20 @@ namespace Polochon.Modules
         /// <param name="disposing">Whether to dispose managed resources.</param>
         protected virtual void Dispose(bool disposing)
         {
-            if (_disposed)
+            if (disposed)
             {
                 return;
             }
 
             if (disposing)
             {
-                if (_serviceProvider is IDisposable disposableProvider)
+                if (serviceProvider is IDisposable disposableProvider)
                 {
                     disposableProvider.Dispose();
                 }
             }
 
-            _disposed = true;
+            disposed = true;
         }
 
         /// <summary>
@@ -242,7 +242,7 @@ namespace Polochon.Modules
         /// <returns>A task representing the async operation.</returns>
         protected virtual async ValueTask DisposeAsyncCore()
         {
-            if (_serviceProvider is IAsyncDisposable asyncDisposableProvider)
+            if (serviceProvider is IAsyncDisposable asyncDisposableProvider)
             {
                 await asyncDisposableProvider.DisposeAsync().ConfigureAwait(false);
             }

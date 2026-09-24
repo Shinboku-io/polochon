@@ -27,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ExternalResourceProxy<TResource>` tracing calls to uninstrumented external resources as client
   activities timed in `polochon.dependency.duration`. Names are constants on `PolochonTelemetry`.
 - `Polochon` now depends on `Microsoft.Extensions.Diagnostics` (`IMeterFactory`).
+- New package `Polochon.Telemetry.OpenTelemetry`: `services.AddPolochon().WithOpenTelemetry()` sets up
+  the host's OpenTelemetry pipeline (every module's traces and metrics, host logs, sampling, OTLP
+  when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, console), and the module-level `WithOpenTelemetry()`
+  exports a module's logs through it, tagged `polochon.module`.
+- New package `Polochon.Telemetry.AzureMonitor`: `.WithAzureMonitor()`, chained after
+  `WithOpenTelemetry()`, exports that pipeline to Application Insights, only for the signals the
+  host collects and at the host's sampling rate.
 
 ### Changed
 
@@ -36,3 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Migration: add a discarded third parameter, e.g. `ConfigureModule((services, module) => ...)`
   becomes `ConfigureModule((services, module, _) => ...)`. Name it instead of using `_` when the
   lambda body itself uses a `_ = ...` discard: a lone `_` lambda parameter is a real parameter.
+- **Breaking:** a module only sees its own feature flags: the host's flags named
+  `{module name}.{flag}` (prefix matched ignoring case), under their short name. The `inventory`
+  module's `IsEnabledAsync("BulkImport")` reads the host's `inventory.BulkImport`; other modules'
+  flags and unprefixed flags are invisible to it. Migration: prefix every module flag defined on the
+  host (appsettings, Azure App Configuration) with the module name.
+- `Polochon.Serilog`: `WithSerilog()`, host and module, now also hands every event to the other
+  logging providers of its container (e.g. OpenTelemetry's), and removes Polochon's base console
+  provider there, which Serilog's own console sink replaces.

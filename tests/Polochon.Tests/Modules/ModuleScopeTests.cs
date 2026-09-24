@@ -13,18 +13,18 @@ namespace Polochon.Tests.Modules
     /// </summary>
     public sealed class ModuleScopeTests : IAsyncLifetime
     {
-        private readonly ScopeModule _module = new();
+        private readonly ScopeModule module = new();
 
         /// <summary>Initializes the module before each test.</summary>
-        public async ValueTask InitializeAsync() => await _module.InitializeAsync();
+        public async ValueTask InitializeAsync() => await module.InitializeAsync();
 
         /// <summary>Disposes the module after each test.</summary>
-        public async ValueTask DisposeAsync() => await _module.DisposeAsync();
+        public async ValueTask DisposeAsync() => await module.DisposeAsync();
 
         [Fact(DisplayName = "Each command gets its own scope")]
         public async Task EachCommandGetsItsOwnScope()
         {
-            IModularModule module = _module;
+            IModularModule module = this.module;
 
             var first = await module.SendCommandAsync(new ProbeScope());
             var second = await module.SendCommandAsync(new ProbeScope());
@@ -35,7 +35,7 @@ namespace Polochon.Tests.Modules
         [Fact(DisplayName = "Each query gets its own scope")]
         public async Task EachQueryGetsItsOwnScope()
         {
-            IModularModule module = _module;
+            IModularModule module = this.module;
 
             var first = await module.SendQueryAsync(new ProbeQueryScope());
             var second = await module.SendQueryAsync(new ProbeQueryScope());
@@ -46,7 +46,7 @@ namespace Polochon.Tests.Modules
         [Fact(DisplayName = "The scope is disposed once the command completes")]
         public async Task ScopeIsDisposedAfterCommand()
         {
-            IModularModule module = _module;
+            IModularModule module = this.module;
 
             var probe = await module.SendCommandAsync(new ProbeScope());
 
@@ -56,7 +56,7 @@ namespace Polochon.Tests.Modules
         [Fact(DisplayName = "A command sent from a handler stays in the sender's scope")]
         public async Task NestedCommandSharesTheScope()
         {
-            IModularModule module = _module;
+            IModularModule module = this.module;
 
             var (outer, inner) = await module.SendCommandAsync(new ProbeNestedScope());
 

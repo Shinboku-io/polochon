@@ -10,24 +10,24 @@ namespace Polochon.Modules
     internal sealed class ModularModuleBuilder<TModule> : IModularModuleBuilder<TModule>
         where TModule : ModuleBase
     {
-        private readonly List<Action<IServiceCollection, ModuleBase, IServiceProvider>> _configurators;
-        private readonly IServiceCollection _hostServices;
+        private readonly List<Action<IServiceCollection, ModuleBase, IServiceProvider>> configurators;
+        private readonly IServiceCollection hostServices;
 
         public ModularModuleBuilder(List<Action<IServiceCollection, ModuleBase, IServiceProvider>> configurators, IServiceCollection hostServices)
         {
-            _configurators = configurators;
-            _hostServices = hostServices;
+            this.configurators = configurators;
+            this.hostServices = hostServices;
         }
 
         public IModularModuleBuilder<TModule> ConfigureModule(Action<IServiceCollection, TModule, IServiceProvider> configure)
         {
-            _configurators.Add((services, module, hostServices) => configure(services, (TModule)module, hostServices));
+            configurators.Add((services, module, hostServices) => configure(services, (TModule)module, hostServices));
             return this;
         }
 
         public IModularModuleBuilder<TModule> ConfigureHostServices(Action<IServiceCollection> configure)
         {
-            configure(_hostServices);
+            configure(hostServices);
             return this;
         }
     }

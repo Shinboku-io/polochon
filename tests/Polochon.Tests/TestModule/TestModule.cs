@@ -10,7 +10,7 @@ namespace Polochon.Tests.TestModule
     /// </summary>
     public sealed class TestModule : ModuleBase
     {
-        private static readonly Lazy<TestModule> _instance = new(() => new TestModule());
+        private static readonly Lazy<TestModule> LazyInstance = new(() => new TestModule());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TestModule"/> class.
@@ -23,7 +23,7 @@ namespace Polochon.Tests.TestModule
         /// <summary>
         /// Gets the singleton instance of the TestModule.
         /// </summary>
-        public static IModularModule Instance => _instance.Value;
+        public static IModularModule Instance => LazyInstance.Value;
 
         /// <summary>
         /// Configures additional services for the test module.

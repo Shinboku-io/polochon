@@ -22,7 +22,7 @@ namespace Polochon.Tests.FeatureManagement
         public async Task WithFeatureManagementModuleEvaluatesFlagsDefinedOnHost()
         {
             // Arrange
-            var configuration = BuildConfiguration(new() { ["FeatureManagement:Beta"] = "true", ["FeatureManagement:Legacy"] = "false" });
+            var configuration = BuildConfiguration(new() { ["FeatureManagement:TestModule.Beta"] = "true", ["FeatureManagement:TestModule.Legacy"] = "false" });
             await using var host = BuildHost(configuration, builder => builder.WithFeatureManagement());
             var module = await InitializeModuleAsync(host);
 
@@ -43,14 +43,14 @@ namespace Polochon.Tests.FeatureManagement
         public async Task WithFeatureManagementModuleSeesHostDefinitionReload()
         {
             // Arrange
-            var configuration = BuildConfiguration(new() { ["FeatureManagement:Beta"] = "false" });
+            var configuration = BuildConfiguration(new() { ["FeatureManagement:TestModule.Beta"] = "false" });
             await using var host = BuildHost(configuration, builder => builder.WithFeatureManagement());
             var module = await InitializeModuleAsync(host);
             var featureManager = module.GetRequiredService<IFeatureManager>();
             Assert.False(await featureManager.IsEnabledAsync("Beta"));
 
             // Act
-            configuration["FeatureManagement:Beta"] = "true";
+            configuration["FeatureManagement:TestModule.Beta"] = "true";
             configuration.Reload();
 
             // Assert
@@ -65,7 +65,7 @@ namespace Polochon.Tests.FeatureManagement
         public async Task WithFeatureManagementDoesNotExposeHostConfigurationToModule()
         {
             // Arrange
-            var configuration = BuildConfiguration(new() { ["FeatureManagement:Beta"] = "true" });
+            var configuration = BuildConfiguration(new() { ["FeatureManagement:TestModule.Beta"] = "true" });
             await using var host = BuildHost(configuration, builder => builder.WithFeatureManagement());
 
             // Act
@@ -84,7 +84,7 @@ namespace Polochon.Tests.FeatureManagement
         public async Task WithFeatureManagementConfigureCallbackRegistersModuleFeatureFilter()
         {
             // Arrange
-            var configuration = BuildConfiguration(new() { ["FeatureManagement:Gated:EnabledFor:0:Name"] = AlwaysOnFilter.Alias });
+            var configuration = BuildConfiguration(new() { ["FeatureManagement:TestModule.Gated:EnabledFor:0:Name"] = AlwaysOnFilter.Alias });
             await using var host = BuildHost(configuration, builder => builder.WithFeatureManagement(featureManagement => featureManagement.AddFeatureFilter<AlwaysOnFilter>()));
             var module = await InitializeModuleAsync(host);
 
@@ -113,6 +113,63 @@ namespace Polochon.Tests.FeatureManagement
 
             // Assert
             Assert.Contains("TestModule", exception.Message, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Tests that a module only sees its own flags - the host's flags prefixed with its name, matched
+        /// ignoring case - while the host keeps evaluating every flag under its full name.
+        /// </summary>
+        [Fact(DisplayName = "WithFeatureManagement lets a module see only its own flags")]
+        public async Task WithFeatureManagementLetsModuleSeeOnlyItsOwnFlags()
+        {
+            // Arrange
+            var configuration = BuildConfiguration(new()
+            {
+                ["FeatureManagement:testmodule.Beta"] = "true",
+                ["FeatureManagement:OtherModule.Secret"] = "true",
+                ["FeatureManagement:Secret"] = "true",
+            });
+            await using var host = BuildHost(configuration, builder => builder.WithFeatureManagement());
+            var module = await InitializeModuleAsync(host);
+
+            // Act
+            var moduleFeatures = module.GetRequiredService<IFeatureManager>();
+            var hostFeatures = host.GetRequiredService<IFeatureManager>();
+
+            // Assert
+            Assert.True(await moduleFeatures.IsEnabledAsync("Beta"));
+            Assert.False(await moduleFeatures.IsEnabledAsync("Secret"));
+            Assert.False(await moduleFeatures.IsEnabledAsync("OtherModule.Secret"));
+            Assert.True(await hostFeatures.IsEnabledAsync("testmodule.Beta"));
+            Assert.True(await hostFeatures.IsEnabledAsync("OtherModule.Secret"));
+        }
+
+        /// <summary>
+        /// Tests that listing a module's features returns only its own, under their short names.
+        /// </summary>
+        [Fact(DisplayName = "WithFeatureManagement lists a module's own flags under their short names")]
+        public async Task WithFeatureManagementListsModuleFlagsUnderShortNames()
+        {
+            // Arrange
+            var configuration = BuildConfiguration(new()
+            {
+                ["FeatureManagement:TestModule.Beta"] = "true",
+                ["FeatureManagement:TestModule.Legacy"] = "false",
+                ["FeatureManagement:OtherModule.Secret"] = "true",
+                ["FeatureManagement:Global"] = "true",
+            });
+            await using var host = BuildHost(configuration, builder => builder.WithFeatureManagement());
+            var module = await InitializeModuleAsync(host);
+
+            // Act
+            var names = new List<string>();
+            await foreach (var name in module.GetRequiredService<IFeatureManager>().GetFeatureNamesAsync())
+            {
+                names.Add(name);
+            }
+
+            // Assert
+            Assert.Equal(["Beta", "Legacy"], names.Order(StringComparer.Ordinal));
         }
 
         /// <summary>

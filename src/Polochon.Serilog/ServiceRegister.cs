@@ -71,7 +71,7 @@ namespace Polochon.Serilog
         {
             ArgumentNullException.ThrowIfNull(configureLogger);
 
-            return builder.ConfigureModule((services, module) => services.AddSerilog(
+            return builder.ConfigureModule((services, module, hostServices) => services.AddSerilog(
                 (serviceProvider, loggerConfiguration) =>
                 {
                     ApplyBaseConfiguration(serviceProvider, loggerConfiguration);

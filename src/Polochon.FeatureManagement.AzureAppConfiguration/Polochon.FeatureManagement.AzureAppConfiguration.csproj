@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Polochon.FeatureManagement.AzureAppConfiguration</PackageId>
+    <Description>Azure App Configuration feature flags for the Polochon kernel: host-level source of the feature definitions modules evaluate.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Identity" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.AzureAppConfiguration" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.FeatureManagement" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Polochon.FeatureManagement.AzureAppConfiguration.Tests" />
+  </ItemGroup>
+
+</Project>

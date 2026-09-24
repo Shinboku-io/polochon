@@ -69,7 +69,7 @@ namespace Polochon.Persistence.SqlServer
             ArgumentNullException.ThrowIfNull(builder);
             ArgumentNullException.ThrowIfNull(connectionStringFactory);
 
-            return builder.ConfigureModule((services, _) =>
+            return builder.ConfigureModule((services, _, _) =>
             {
                 // AddDbContextFactory<TContext>() registers DbContextOptions<TContext>, the
                 // non-generic DbContextOptions forwarder, IDbContextFactory<TContext>, and

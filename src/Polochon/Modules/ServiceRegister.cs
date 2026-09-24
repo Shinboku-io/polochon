@@ -20,14 +20,16 @@ namespace Polochon.Modules
         public static IModularModuleBuilder<TModule> AddModule<TModule>(this IServiceCollection services)
             where TModule : ModuleBase
         {
-            var configurators = new List<Action<IServiceCollection, ModuleBase>>();
+            var configurators = new List<Action<IServiceCollection, ModuleBase, IServiceProvider>>();
 
             _ = services.AddSingleton<IModularModule>(sp =>
             {
                 var module = ActivatorUtilities.CreateInstance<TModule>(sp);
                 foreach (var configure in configurators)
                 {
-                    module.AddConfigurator(configure);
+                    // sp is the host's root provider (singleton factory): bound here so
+                    // configurators needing a host service can reach it at module initialization.
+                    module.AddConfigurator((moduleServices, configuredModule) => configure(moduleServices, configuredModule, sp));
                 }
 
                 return module;

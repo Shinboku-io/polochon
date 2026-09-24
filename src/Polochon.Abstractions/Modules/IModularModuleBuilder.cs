@@ -34,11 +34,19 @@ namespace Polochon.Abstractions.Modules
     {
         /// <summary>
         /// Queues a callback that configures the module's own isolated service collection, given the
-        /// module instance itself. Callbacks run, in registration order, after the module's
-        /// <c>ConfigureAdditionalServices</c> override and before the module's service provider is built.
+        /// module instance itself and the host's root <see cref="IServiceProvider"/>. Callbacks run, in
+        /// registration order, after the module's <c>ConfigureAdditionalServices</c> override and before
+        /// the module's service provider is built - by which time the host's provider is already built.
         /// </summary>
-        /// <param name="configure">A callback that configures the module's isolated service collection, given the module instance.</param>
-        IModularModuleBuilder<TModule> ConfigureModule(Action<IServiceCollection, TModule> configure);
+        /// <remarks>
+        /// The host's provider is there for extensions that bridge a single host-owned service into the
+        /// module's isolated container (e.g. <c>WithFeatureManagement</c> forwarding the host's feature
+        /// definitions) without leaking the host's configuration or plumbing into the module. Keep what is
+        /// taken from the host narrow: the module container is isolated on purpose. Callbacks that do not
+        /// need it simply ignore it, e.g. <c>ConfigureModule((services, module, _) => ...)</c>.
+        /// </remarks>
+        /// <param name="configure">A callback that configures the module's isolated service collection, given the module instance and the host's root service provider.</param>
+        IModularModuleBuilder<TModule> ConfigureModule(Action<IServiceCollection, TModule, IServiceProvider> configure);
 
         /// <summary>
         /// Registers services directly into the host's own service collection - not this module's

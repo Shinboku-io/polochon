@@ -46,7 +46,7 @@ namespace Polochon.Security
 
             // Replace, not TryAdd: module configurators run after the base configuration has
             // already registered the default provider.
-            return builder.ConfigureModule((services, _) =>
+            return builder.ConfigureModule((services, _, _) =>
                 services.Replace(ServiceDescriptor.Singleton(factory)));
         }
     }

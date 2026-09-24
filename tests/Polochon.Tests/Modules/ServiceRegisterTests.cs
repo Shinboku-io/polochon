@@ -43,7 +43,7 @@ namespace Polochon.Tests.Modules
             var marker = new object();
 
             var builder = services.AddModule<TestModuleType>();
-            _ = builder.ConfigureModule((moduleServices, _) => moduleServices.AddSingleton(marker));
+            _ = builder.ConfigureModule((moduleServices, _, _) => moduleServices.AddSingleton(marker));
 
             using var provider = services.BuildServiceProvider();
             var module = (TestModuleType)provider.GetRequiredService<IModularModule>();
@@ -68,7 +68,7 @@ namespace Polochon.Tests.Modules
             string? observedName = null;
 
             var builder = services.AddModule<TestModuleType>();
-            _ = builder.ConfigureModule((_, configuredModule) => observedName = configuredModule.Name);
+            _ = builder.ConfigureModule((_, configuredModule, _) => observedName = configuredModule.Name);
 
             using var provider = services.BuildServiceProvider();
             var module = (TestModuleType)provider.GetRequiredService<IModularModule>();
@@ -78,6 +78,32 @@ namespace Polochon.Tests.Modules
 
             // Assert
             Assert.Equal("TestModule", observedName);
+        }
+
+        /// <summary>
+        /// Tests that ConfigureModule's callback receives the host's root provider, so extensions can
+        /// bridge a host-owned service into the module's isolated container (e.g. WithFeatureManagement
+        /// forwarding the host's feature definitions).
+        /// </summary>
+        [Fact(DisplayName = "ConfigureModule hands the callback the host's root service provider")]
+        public async Task AddModuleConfigureModuleReceivesHostRootProvider()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var hostMarker = new object();
+            _ = services.AddSingleton(hostMarker);
+
+            var builder = services.AddModule<TestModuleType>();
+            _ = builder.ConfigureModule((moduleServices, _, hostServices) => moduleServices.AddSingleton(new HostMarker(hostServices.GetRequiredService<object>())));
+
+            using var provider = services.BuildServiceProvider();
+            var module = (TestModuleType)provider.GetRequiredService<IModularModule>();
+
+            // Act
+            await module.InitializeAsync();
+
+            // Assert
+            Assert.Same(hostMarker, module.GetRequiredService<HostMarker>().Value);
         }
 
         /// <summary>
@@ -92,15 +118,14 @@ namespace Polochon.Tests.Modules
             var builder = services.AddModule<TestModuleType>();
 
             // Act
-            var result = builder.ConfigureModule(static (_, _) => { });
+            var result = builder.ConfigureModule(static (_, _, _) => { });
 
             // Assert
             Assert.Same(builder, result);
         }
 
         /// <summary>
-        /// Tests that the strongly-typed ConfigureModule(Action&lt;IServiceCollection, TModule&gt;) overload
-        /// hands the callback the actual module instance (not just its Name), so callers can read
+        /// Tests that ConfigureModule, being strongly typed on TModule, hands the callback the actual module instance (not just its Name), so callers can read
         /// module-specific properties or call module-specific methods on the real, concrete module type.
         /// </summary>
         [Fact]
@@ -111,7 +136,7 @@ namespace Polochon.Tests.Modules
             TestModuleType? observedModule = null;
 
             var builder = services.AddModule<TestModuleType>();
-            _ = builder.ConfigureModule((IServiceCollection _, TestModuleType module) => observedModule = module);
+            _ = builder.ConfigureModule((IServiceCollection _, TestModuleType module, IServiceProvider _) => observedModule = module);
 
             using var provider = services.BuildServiceProvider();
             var module = (TestModuleType)provider.GetRequiredService<IModularModule>();
@@ -122,6 +147,19 @@ namespace Polochon.Tests.Modules
             // Assert
             Assert.Same(module, observedModule);
             Assert.Equal("TestModule", observedModule!.Name);
+        }
+
+        /// <summary>
+        /// Wraps a host service registered into the module container, so tests can tell it apart.
+        /// </summary>
+        private sealed class HostMarker
+        {
+            public HostMarker(object value)
+            {
+                Value = value;
+            }
+
+            public object Value { get; }
         }
     }
 }

@@ -36,7 +36,7 @@ namespace Polochon.Messaging.AzureQueue
             ArgumentNullException.ThrowIfNull(builder);
             ArgumentNullException.ThrowIfNull(options);
 
-            return builder.ConfigureModule((services, _) =>
+            return builder.ConfigureModule((services, _, _) =>
             {
                 services.AddAzureQueueProxy();
 

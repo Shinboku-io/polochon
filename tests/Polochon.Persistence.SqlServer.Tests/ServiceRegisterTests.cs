@@ -105,7 +105,7 @@ namespace Polochon.Persistence.SqlServer.Tests
 
             var services = new ServiceCollection();
             var builder = services.AddModule<FakeModule>()
-                .ConfigureModule((moduleServices, _) => moduleServices.AddScoped<ScopedMarker>());
+                .ConfigureModule((moduleServices, _, _) => moduleServices.AddScoped<ScopedMarker>());
             _ = builder.WithSqlServer<FakeModule, FakeDbContext>(sp =>
             {
                 markerSeenByFactory = sp.GetRequiredService<ScopedMarker>();

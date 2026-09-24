@@ -8,6 +8,7 @@ using Polochon.Abstractions.Modules;
 using Polochon.Logging;
 using Polochon.Mediation;
 using Polochon.Security;
+using Polochon.Telemetry;
 
 namespace Polochon.Modules
 {
@@ -116,7 +117,11 @@ namespace Polochon.Modules
         {
             services.AddDispatcher(types.First());
 
-            // Registered first so it runs outermost: commands returning a CommandResult report
+            // Registered first so its behavior runs outermost: traces and times the whole pipeline,
+            // and sees the final CommandResult - including failures CommandResultBehavior converts.
+            _ = services.AddPolochonTelemetry(Name);
+
+            // Registered next so it wraps everything else: commands returning a CommandResult report
             // every failure, including one thrown by the unit of work, as a ResultCode.
             _ = services.AddPipelineBehavior(typeof(CommandResultBehavior<,>));
             _ = services.AddPolochonLogging();

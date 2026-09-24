@@ -61,8 +61,9 @@ namespace Polochon.FeatureManagement.AzureAppConfiguration
         {
             _ = services.AddAzureAppConfiguration();
 
-            // The host may already have called AddFeatureManagement() itself (e.g. to add filters);
-            // registering it twice is not supported by Microsoft.FeatureManagement.
+            // The host may already have registered feature management itself (e.g. WithFeatureManagement()
+            // to add filters): keep that registration rather than adding a second one, which would throw
+            // if it is AddScopedFeatureManagement().
             if (!services.Any(descriptor => descriptor.ServiceType == typeof(IFeatureManager)))
             {
                 _ = services.AddFeatureManagement();

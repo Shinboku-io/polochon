@@ -12,7 +12,7 @@ Open source .NET kernel for building modular monoliths: a CQRS mediator, isolate
 
 | Package | What it's for |
 |---|---|
-| `Polochon` | The core kernel: the `IPolochonDispatcher` mediator, `ModuleBase` (isolated per-module DI container), module registration (`AddModule<TModule>()`), base logging, module feature flags (`WithFeatureManagement()`), and the EF Core `UnitOfWork<TContext>`/`GenericRepository<T, TIdentifier>` persistence layer. |
+| `Polochon` | The core kernel: the `IPolochonDispatcher` mediator, `ModuleBase` (isolated per-module DI container), module registration (`AddModule<TModule>()`), base logging, per-module telemetry (traces and metrics of every command and query), module feature flags (`WithFeatureManagement()`), and the EF Core `UnitOfWork<TContext>`/`GenericRepository<T, TIdentifier>` persistence layer. |
 | `Polochon.Abstractions` | Shared contracts with no implementation: the CQRS interfaces (`IQuery`, `ICommand`, handlers, ...), the module interfaces (`IModularModule`, `IModularModuleBuilder<TModule>`), and the domain-modeling base types (`Entity<TIdentifier>`, `ValueObject`, `IDomainEvent`/`IIntegrationEvent`). Reference this from a module's application/domain layer if it shouldn't depend on the kernel implementation. |
 | `Polochon.FeatureManagement.AzureAppConfiguration` | Makes an Azure App Configuration store the source of the host's feature flags (endpoint, identity, labels, refresh, Key Vault) - host-level only, so none of that plumbing reaches modules. |
 | `Polochon.Serilog` | Swaps Polochon's default console logging for Serilog - at the host level, or independently per module. |
@@ -188,7 +188,7 @@ Feature flags use [Microsoft.FeatureManagement](https://learn.microsoft.com/azur
 
 ```csharp
 // Host: definitions from the "FeatureManagement" configuration section (appsettings, env vars...).
-builder.Services.AddFeatureManagement();
+builder.Services.AddPolochon().WithFeatureManagement();
 
 // Module: IFeatureManager / IVariantFeatureManager in the module's own container.
 builder.Services.AddGreeting().WithFeatureManagement();
@@ -214,6 +214,58 @@ internal sealed class GreetQueryHandler : IQueryHandler<GreetQuery, string>
 `WithFeatureManagement()` gives the module an `IFeatureDefinitionProvider` that forwards to the host's, so the module never sees the host's `IConfiguration`, endpoints or credentials. Definitions are read through on each evaluation, so a configuration reload on the host reaches every module. Feature filters, targeting and variants are still evaluated inside the module: `WithFeatureManagement(fm => fm.AddFeatureFilter<MyFilter>())` adds a filter to that module only. If the host has not registered feature management, module initialization fails at startup, naming the module.
 
 To load the host's flags from Azure App Configuration instead, see [`Polochon.FeatureManagement.AzureAppConfiguration`](src/Polochon.FeatureManagement.AzureAppConfiguration/README.md) - modules do not change.
+
+## Telemetry
+
+Polochon emits telemetry through the standard .NET APIs - `ActivitySource` for traces, `Meter` for metrics, `ILogger` for logs - so any exporter collects it without an adapter. Nothing is exported until the host configures an exporter; when nothing listens, the instrumentation costs next to nothing.
+
+Every module gets, with no registration:
+
+- **`IModuleTelemetry`** in its container: an `ActivitySource` and a `Meter`, both named `Polochon.Modules.{module name}`.
+- **A trace of every command and query it handles**, one activity per message named after the message type, tagged `polochon.module`, `polochon.message.type`, `polochon.message.kind` (`command`/`query`) and, for a `CommandResult`, `polochon.result_code`. A thrown exception or a failed `ResultCode` sets the activity's status to error and `error.type`. A message a handler sends through its injected dispatcher is traced as a child.
+- **The `polochon.message.duration` histogram** (seconds, same tags): its count is the number of messages handled.
+
+The tracing behavior runs outermost in the pipeline, so it covers validators and the handler, and a command failure that `CommandResultBehavior` turns into a `ResultCode` is still traced as an error.
+
+A module adds its own telemetry through `IModuleTelemetry`:
+
+```csharp
+internal sealed class ImportItemsCommandHandler : ICommandHandler<ImportItemsCommand, CommandResult>
+{
+    private readonly ActivitySource activitySource;
+    private readonly Counter<int> importedItems;
+
+    public ImportItemsCommandHandler(IModuleTelemetry telemetry)
+    {
+        activitySource = telemetry.ActivitySource;
+        importedItems = telemetry.Meter.CreateCounter<int>("inventory.items.imported");
+    }
+
+    public async ValueTask<CommandResult> HandleAsync(ImportItemsCommand command, CancellationToken cancellationToken)
+    {
+        using var activity = activitySource.StartActivity("ParseFile"); // null when nothing listens
+        // ...
+        importedItems.Add(command.Items.Count);
+        return CommandResult.Success();
+    }
+}
+```
+
+To trace calls to an external resource that has no instrumentation of its own, derive from `ExternalResourceProxy<TResource>`. Each call becomes a `Client` activity of the module, timed in the `polochon.dependency.duration` histogram, with failures recorded on the activity and rethrown as is. HttpClient, EF Core, SqlClient and most Azure SDK clients are already instrumented, so don't wrap those.
+
+```csharp
+internal sealed class SmtpProxy : ExternalResourceProxy<SmtpClient>
+{
+    public SmtpProxy(SmtpClient client, IModuleTelemetry telemetry)
+        : base(client, telemetry, "smtp", "outbound-mail")
+    {
+    }
+
+    public Task SendAsync(MailMessage message) => TelemetryCallAsync("Send", client => client.SendMailAsync(message));
+}
+```
+
+Exporters are configured once, on the host, and collect every module by name (`PolochonTelemetry.AllModulesSourceName`, i.e. `Polochon.Modules.*`). Tag and metric names are constants on `PolochonTelemetry`.
 
 ## Persistence: unit of work, domain and integration events
 

@@ -42,7 +42,7 @@ builder.AddAzureAppConfigurationFeatureFlags(options =>
 builder.Services.AddInventory().WithFeatureManagement();
 ```
 
-`AddAzureAppConfigurationFeatureFlags()` adds the store as a configuration source (feature flags only), registers feature management on the host, and starts a background service that refreshes the flags. You don't need to call `AddFeatureManagement()` yourself. If you already do (for example to add host-level filters), that registration is kept.
+`AddAzureAppConfigurationFeatureFlags()` adds the store as a configuration source (feature flags only), registers feature management on the host, and starts a background service that refreshes the flags. You don't need `AddPolochon().WithFeatureManagement()` on top. Calling it anyway, before or after, to add host-level filters is safe: it reuses this registration.
 
 A module handler just injects `IFeatureManager`:
 

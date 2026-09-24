@@ -115,6 +115,52 @@ namespace Polochon.Tests.FeatureManagement
             Assert.Contains("TestModule", exception.Message, StringComparison.Ordinal);
         }
 
+        /// <summary>
+        /// Tests that the host-level WithFeatureManagement() registers feature management on the host,
+        /// with the configure callback applied to the host's own evaluation.
+        /// </summary>
+        [Fact(DisplayName = "Host WithFeatureManagement configure callback registers a host feature filter")]
+        public async Task HostWithFeatureManagementConfigureCallbackRegistersHostFeatureFilter()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            _ = services.AddSingleton<IConfiguration>(BuildConfiguration(new() { ["FeatureManagement:Gated:EnabledFor:0:Name"] = AlwaysOnFilter.Alias }));
+
+            // Act
+            _ = services.WithFeatureManagement(featureManagement => featureManagement.AddFeatureFilter<AlwaysOnFilter>());
+            await using var host = services.BuildServiceProvider();
+
+            // Assert
+            Assert.True(await host.GetRequiredService<IFeatureManager>().IsEnabledAsync("Gated"));
+        }
+
+        /// <summary>
+        /// Tests that the host-level WithFeatureManagement() reuses feature management registered earlier
+        /// (here scoped, which a second AddFeatureManagement() would reject): no second registration, and
+        /// the callback's filter gets the existing registration's lifetime.
+        /// </summary>
+        [Fact(DisplayName = "Host WithFeatureManagement reuses an existing feature management registration")]
+        public async Task HostWithFeatureManagementReusesExistingFeatureManagementRegistration()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            _ = services.AddSingleton<IConfiguration>(BuildConfiguration(new() { ["FeatureManagement:Gated:EnabledFor:0:Name"] = AlwaysOnFilter.Alias }));
+            _ = services.AddScopedFeatureManagement();
+
+            // Act
+            _ = services.WithFeatureManagement(featureManagement => featureManagement.AddFeatureFilter<AlwaysOnFilter>());
+            _ = services.WithFeatureManagement(featureManagement => featureManagement.AddFeatureFilter<AlwaysOnFilter>());
+            await using var host = services.BuildServiceProvider();
+            await using var scope = host.CreateAsyncScope();
+
+            // Assert
+            var featureManager = Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IFeatureManager));
+            Assert.Equal(ServiceLifetime.Scoped, featureManager.Lifetime);
+            var filter = Assert.Single(services, descriptor => descriptor.ImplementationType == typeof(AlwaysOnFilter));
+            Assert.Equal(ServiceLifetime.Scoped, filter.Lifetime);
+            Assert.True(await scope.ServiceProvider.GetRequiredService<IFeatureManager>().IsEnabledAsync("Gated"));
+        }
+
         private static IConfigurationRoot BuildConfiguration(Dictionary<string, string?> values)
             => new ConfigurationBuilder().AddInMemoryCollection(values).Build();
 
@@ -122,7 +168,7 @@ namespace Polochon.Tests.FeatureManagement
         {
             var services = new ServiceCollection();
             _ = services.AddSingleton(configuration);
-            _ = services.AddFeatureManagement();
+            _ = services.WithFeatureManagement();
             configureModule(services.AddModule<TestModuleType>());
 
             return services.BuildServiceProvider();

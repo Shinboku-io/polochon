@@ -33,6 +33,9 @@
     <PackageVersion Include="Serilog" Version="4.4.0" />
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <!-- Telemetry -->
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.Testing" Version="10.10.0" />
     <!-- Feature Management -->
     <PackageVersion Include="Microsoft.FeatureManagement" Version="4.8.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.AzureAppConfiguration" Version="8.6.0" />

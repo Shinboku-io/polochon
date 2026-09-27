@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Polochon.Abstractions.Modules;
 
 namespace Polochon.Modules
@@ -36,6 +37,32 @@ namespace Polochon.Modules
             });
 
             return new ModularModuleBuilder<TModule>(configurators, services);
+        }
+
+        /// <summary>
+        /// Hands a module its own settings object, provided by the host at registration time (e.g. bound
+        /// from a configuration section), by registering it into the module's isolated container - where the
+        /// host's own <c>IOptions&lt;T&gt;</c> registrations never reach. Handlers and services inside the
+        /// module can then inject either <see cref="IOptions{TOptions}"/> or <typeparamref name="TOptions"/>
+        /// itself, e.g. <c>services.AddModule&lt;TModule&gt;().WithOptions(new MyModuleOptions { ... })</c>.
+        /// </summary>
+        /// <typeparam name="TModule">The module type this builder was created for.</typeparam>
+        /// <typeparam name="TOptions">The module's settings type.</typeparam>
+        /// <param name="builder">The module builder to configure.</param>
+        /// <param name="options">The settings instance, shared as a singleton within the module.</param>
+        /// <returns>The same builder, for chaining.</returns>
+        public static IModularModuleBuilder<TModule> WithOptions<TModule, TOptions>(this IModularModuleBuilder<TModule> builder, TOptions options)
+            where TModule : IModularModule
+            where TOptions : class
+        {
+            ArgumentNullException.ThrowIfNull(builder);
+            ArgumentNullException.ThrowIfNull(options);
+
+            return builder.ConfigureModule((services, _, _) =>
+            {
+                _ = services.AddSingleton(options);
+                _ = services.AddSingleton(Options.Create(options));
+            });
         }
     }
 }

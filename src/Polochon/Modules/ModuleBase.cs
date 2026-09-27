@@ -115,7 +115,7 @@ namespace Polochon.Modules
         /// <param name="types">Assemblies where business logic for mediation is defined. For mediation configuration.</param>
         protected virtual void ConfigureServices([DisallowNull] IServiceCollection services, IReadOnlyList<Assembly> types)
         {
-            services.AddDispatcher(types.First());
+            _ = services.AddDispatcher(types.ToArray());
 
             // Registered first so its behavior runs outermost: traces and times the whole pipeline,
             // and sees the final CommandResult - including failures CommandResultBehavior converts.

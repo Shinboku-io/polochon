@@ -31,9 +31,9 @@ namespace Polochon.Mediation
         /// </summary>
         /// <param name="services">The service collection to register with.</param>
         /// <param name="assembly">The assembly to scan for handler implementations.</param>
-        public static IServiceCollection AddDispatcher(this IServiceCollection services, Assembly assembly)
+        public static IServiceCollection AddDispatcher(this IServiceCollection services, params Assembly[] assembly)
         {
-            var registry = RegisterWrappersAndTypes(services, assembly.GetTypes());
+            var registry = RegisterWrappersAndTypes(services, [.. assembly.SelectMany(a => a.GetTypes())]);
 
             return services.AddDispatcherCore(registry);
         }

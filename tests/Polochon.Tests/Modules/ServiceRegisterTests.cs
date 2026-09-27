@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Polochon.Abstractions.Modules;
 using Polochon.Modules;
 using Xunit;
@@ -147,6 +148,38 @@ namespace Polochon.Tests.Modules
             // Assert
             Assert.Same(module, observedModule);
             Assert.Equal("TestModule", observedModule!.Name);
+        }
+
+        /// <summary>
+        /// Tests that WithOptions makes the host-provided settings instance resolvable from the module's
+        /// isolated container, both directly and as IOptions&lt;T&gt;.
+        /// </summary>
+        [Fact(DisplayName = "WithOptions exposes the settings to the module as TOptions and IOptions<TOptions>")]
+        public async Task WithOptionsExposesSettingsToModule()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var settings = new SampleOptions { Value = Guid.NewGuid().ToString() };
+
+            _ = services.AddModule<TestModuleType>().WithOptions(settings);
+
+            using var provider = services.BuildServiceProvider();
+            var module = (TestModuleType)provider.GetRequiredService<IModularModule>();
+
+            // Act
+            await module.InitializeAsync();
+
+            // Assert
+            Assert.Same(settings, module.GetRequiredService<SampleOptions>());
+            Assert.Same(settings, module.GetRequiredService<IOptions<SampleOptions>>().Value);
+        }
+
+        /// <summary>
+        /// Settings type used by the WithOptions test.
+        /// </summary>
+        private sealed class SampleOptions
+        {
+            public string? Value { get; init; }
         }
 
         /// <summary>

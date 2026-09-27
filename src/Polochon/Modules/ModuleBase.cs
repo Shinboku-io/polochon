@@ -45,7 +45,7 @@ namespace Polochon.Modules
             {
                 if (serviceProvider is null)
                 {
-                    throw new InvalidOperationException($"Module '{Name}' has not been initialized. Call Initialize() first.");
+                    throw new InvalidOperationException($"Module '{Name}' has not been initialized. Call InitializeAsync() first.");
                 }
                 return serviceProvider;
             }
@@ -144,14 +144,6 @@ namespace Polochon.Modules
         /// </summary>
         /// <param name="configure">A callback that configures the module's isolated service collection, given the module instance.</param>
         internal void AddConfigurator(Action<IServiceCollection, ModuleBase> configure) => externalConfigurators.Add(configure);
-
-        /// <inheritdoc/>
-        public void Initialize(IModuleConfiguration? configuration = null)
-        {
-            ConfigureAdditionalServices(serviceCollection);
-            ApplyExternalConfigurators();
-            serviceProvider = serviceCollection.BuildServiceProvider();
-        }
 
         /// <inheritdoc/>
         public async Task InitializeAsync(IModuleConfiguration? configuration = null)

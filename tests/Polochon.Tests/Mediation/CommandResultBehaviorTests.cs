@@ -92,7 +92,7 @@ namespace Polochon.Tests.Mediation
         {
             var services = new ServiceCollection();
             services.AddLogging();
-            services.AddDispatcher([typeof(ResultCommandHandler), typeof(ResultCommandValidator), typeof(PlainCommandHandler)]);
+            services.AddDispatcher(typeof(ResultCommandHandler), typeof(ResultCommandValidator), typeof(PlainCommandHandler));
             services.AddPipelineBehavior(typeof(CommandResultBehavior<,>));
 
             return services.BuildServiceProvider().GetRequiredService<IPolochonDispatcher>();

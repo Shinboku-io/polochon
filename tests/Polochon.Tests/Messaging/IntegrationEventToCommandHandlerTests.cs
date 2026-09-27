@@ -76,7 +76,7 @@ namespace Polochon.Tests.Messaging
         {
             var services = new ServiceCollection();
             services.AddSingleton<Recorder>();
-            services.AddDispatcher([typeof(TestEventToCommandHandler), typeof(TestCommandHandler)]);
+            services.AddDispatcher(typeof(TestEventToCommandHandler), typeof(TestCommandHandler));
 
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();
@@ -96,7 +96,7 @@ namespace Polochon.Tests.Messaging
         {
             var services = new ServiceCollection();
             services.AddSingleton<Recorder>();
-            services.AddDispatcher([typeof(TestEventToCommandHandler), typeof(TestCommandHandler)]);
+            services.AddDispatcher(typeof(TestEventToCommandHandler), typeof(TestCommandHandler));
 
             var provider = services.BuildServiceProvider();
             var registry = provider.GetRequiredService<DispatcherRegistry>();

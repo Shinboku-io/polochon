@@ -79,7 +79,7 @@ namespace Polochon.Validation.FluentValidation.Tests
         {
             var services = new ServiceCollection();
             services.AddLogging();
-            services.AddDispatcher([typeof(CreateThingHandler)]);
+            services.AddDispatcher(typeof(CreateThingHandler));
             services.AddPolochonFluentValidation(typeof(CreateThingValidator).Assembly);
 
             if (withResultBehavior)

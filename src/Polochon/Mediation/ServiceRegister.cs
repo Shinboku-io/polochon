@@ -18,7 +18,7 @@ namespace Polochon.Mediation
         /// </summary>
         /// <param name="services">The service collection to register with.</param>
         /// <param name="handlerTypes">The candidate types to scan for handler implementations.</param>
-        public static IServiceCollection AddDispatcher(this IServiceCollection services, Type[] handlerTypes)
+        public static IServiceCollection AddDispatcher(this IServiceCollection services, params Type[] handlerTypes)
         {
             var registry = RegisterWrappersAndTypes(services, handlerTypes);
 

@@ -35,13 +35,13 @@ namespace Polochon.Tests.TestModule
         /// Tests that the module can be initialized.
         /// </summary>
         [Fact]
-        public void Module_Initializes_Correctly()
+        public async Task Module_Initializes_Correctly()
         {
             // Arrange
             var module = new TestModule();
 
             // Act
-            module.Initialize();
+            await module.InitializeAsync();
 
             // Assert
             Assert.NotNull(module.ServiceProvider);

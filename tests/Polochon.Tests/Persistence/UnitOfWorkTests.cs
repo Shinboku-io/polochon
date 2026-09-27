@@ -39,7 +39,7 @@ namespace Polochon.Tests.Persistence
             var recorder = new EventRecorder();
             var services = new ServiceCollection();
             services.AddSingleton(recorder);
-            services.AddDispatcher([typeof(RecordingDomainEventHandler)]);
+            services.AddDispatcher(typeof(RecordingDomainEventHandler));
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();
 
@@ -69,10 +69,10 @@ namespace Polochon.Tests.Persistence
             var services = new ServiceCollection();
             services.AddSingleton(recorder);
             services.AddSingleton(context);
-            services.AddDispatcher([
+            services.AddDispatcher(
                 typeof(RecordingDomainEventHandler),
                 typeof(CascadingDomainEventHandler),
-                typeof(RecordingCascadedDomainEventHandler)]);
+                typeof(RecordingCascadedDomainEventHandler));
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();
 
@@ -93,7 +93,7 @@ namespace Polochon.Tests.Persistence
         public async Task CommitAsync_PublishesRaisedIntegrationEvents_ToTheOutbox_OnlyAfterSaveChangesSucceeds()
         {
             var services = new ServiceCollection();
-            services.AddDispatcher([]);
+            services.AddDispatcher(Type.EmptyTypes);
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();
             var outbox = new RecordingOutbox();
@@ -120,7 +120,7 @@ namespace Polochon.Tests.Persistence
         {
             var services = new ServiceCollection();
             services.AddSingleton<EventRecorder>();
-            services.AddDispatcher([typeof(RecordingDomainEventHandler)]);
+            services.AddDispatcher(typeof(RecordingDomainEventHandler));
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();
 
@@ -144,7 +144,7 @@ namespace Polochon.Tests.Persistence
         public async Task CommitAsync_PersistsTheAddedAggregate()
         {
             var services = new ServiceCollection();
-            services.AddDispatcher([]);
+            services.AddDispatcher(Type.EmptyTypes);
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();
 
@@ -169,7 +169,7 @@ namespace Polochon.Tests.Persistence
         public async Task RollbackAsync_ReplacesContext_WithANewInstance()
         {
             var services = new ServiceCollection();
-            services.AddDispatcher([]);
+            services.AddDispatcher(Type.EmptyTypes);
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();
 
@@ -188,7 +188,7 @@ namespace Polochon.Tests.Persistence
         public async Task RollbackAsync_DisposesThePreviousContext()
         {
             var services = new ServiceCollection();
-            services.AddDispatcher([]);
+            services.AddDispatcher(Type.EmptyTypes);
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();
 
@@ -209,7 +209,7 @@ namespace Polochon.Tests.Persistence
         public async Task RollbackAsync_DiscardsPendingAdditions_SoTheyAreNeverPersisted()
         {
             var services = new ServiceCollection();
-            services.AddDispatcher([]);
+            services.AddDispatcher(Type.EmptyTypes);
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();
 
@@ -228,7 +228,7 @@ namespace Polochon.Tests.Persistence
         public async Task RollbackAsync_LeavesTheUnitOfWorkUsable_ForFurtherWork()
         {
             var services = new ServiceCollection();
-            services.AddDispatcher([]);
+            services.AddDispatcher(Type.EmptyTypes);
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();
 
@@ -251,7 +251,7 @@ namespace Polochon.Tests.Persistence
             var recorder = new EventRecorder();
             var services = new ServiceCollection();
             services.AddSingleton(recorder);
-            services.AddDispatcher([typeof(RecordingDomainEventHandler)]);
+            services.AddDispatcher(typeof(RecordingDomainEventHandler));
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();
 
@@ -276,7 +276,7 @@ namespace Polochon.Tests.Persistence
         public async Task DisposeAsync_DisposesTheOwnedContext()
         {
             var services = new ServiceCollection();
-            services.AddDispatcher([]);
+            services.AddDispatcher(Type.EmptyTypes);
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();
 

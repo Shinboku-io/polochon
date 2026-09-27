@@ -54,12 +54,6 @@ namespace Polochon.Abstractions.Modules
         IOutboxReader Outbox { get; }
 
         /// <summary>
-        /// Initializes the module with its own service container.
-        /// </summary>
-        /// <param name="configuration">Optional configuration for the module.</param>
-        void Initialize(IModuleConfiguration? configuration = null);
-
-        /// <summary>
         /// Initializes the module asynchronously with its own service container.
         /// </summary>
         /// <param name="configuration">Optional configuration for the module.</param>

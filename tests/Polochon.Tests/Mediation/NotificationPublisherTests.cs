@@ -81,7 +81,7 @@ namespace Polochon.Tests.Mediation
         public async Task PublishAsync_WithNoRegisteredHandler_DoesNotThrow()
         {
             var services = new ServiceCollection();
-            services.AddDispatcher([]);
+            services.AddDispatcher(Type.EmptyTypes);
 
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();
@@ -96,7 +96,7 @@ namespace Polochon.Tests.Mediation
         {
             var services = new ServiceCollection();
             services.AddSingleton<Recorder>();
-            services.AddDispatcher([typeof(RecordingHandler)]);
+            services.AddDispatcher(typeof(RecordingHandler));
 
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();
@@ -112,7 +112,7 @@ namespace Polochon.Tests.Mediation
         {
             var services = new ServiceCollection();
             services.AddSingleton<Recorder>();
-            services.AddDispatcher([typeof(RecordingHandler), typeof(SecondRecordingHandler)]);
+            services.AddDispatcher(typeof(RecordingHandler), typeof(SecondRecordingHandler));
 
             var provider = services.BuildServiceProvider();
             var publisher = provider.GetRequiredService<INotificationPublisher>();

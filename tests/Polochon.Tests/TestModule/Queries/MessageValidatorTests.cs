@@ -25,7 +25,7 @@ namespace Polochon.Tests.TestModule.Queries
             services.AddScoped<IMessageValidator<TestQueryWithValidation, TestQueryResult>>(sp => validator);
 
             services.AddScoped<IQueryHandler<TestQueryWithValidation, TestQueryResult>, TestQueryHandlerAfterValidation>();
-            services.AddDispatcher([typeof(TestQueryHandlerAfterValidation)]);
+            services.AddDispatcher(typeof(TestQueryHandlerAfterValidation));
 
             var serviceProvider = services.BuildServiceProvider();
             var dispatcher = serviceProvider.GetRequiredService<IPolochonDispatcher>();
@@ -59,7 +59,7 @@ namespace Polochon.Tests.TestModule.Queries
             services.AddScoped<IMessageValidator<TestQueryWithValidation, TestQueryResult>, FailingTestQueryValidator>();
 
             services.AddScoped<IQueryHandler<TestQueryWithValidation, TestQueryResult>, TestQueryHandlerAfterValidation>();
-            services.AddDispatcher([typeof(TestQueryHandlerAfterValidation)]);
+            services.AddDispatcher(typeof(TestQueryHandlerAfterValidation));
 
             var serviceProvider = services.BuildServiceProvider();
             var dispatcher = serviceProvider.GetRequiredService<IPolochonDispatcher>();
@@ -90,7 +90,7 @@ namespace Polochon.Tests.TestModule.Queries
                 new RecordingValidator() { Name = "Second", CallOrder = validatorCallOrder });
 
             services.AddScoped<IQueryHandler<TestQueryWithValidation, TestQueryResult>, TestQueryHandlerAfterValidation>();
-            services.AddDispatcher([typeof(TestQueryHandlerAfterValidation)]);
+            services.AddDispatcher(typeof(TestQueryHandlerAfterValidation));
 
             var serviceProvider = services.BuildServiceProvider();
             var dispatcher = serviceProvider.GetRequiredService<IPolochonDispatcher>();
@@ -128,7 +128,7 @@ namespace Polochon.Tests.TestModule.Queries
             services.AddScoped<IMessageValidator<TestQueryWithValidation, TestQueryResult>, FailingTestQueryValidator>();
 
             services.AddScoped<IQueryHandler<TestQueryWithValidation, TestQueryResult>, TestQueryHandlerAfterValidation>();
-            services.AddDispatcher([typeof(TestQueryHandlerAfterValidation)]);
+            services.AddDispatcher(typeof(TestQueryHandlerAfterValidation));
 
             var serviceProvider = services.BuildServiceProvider();
             var dispatcher = serviceProvider.GetRequiredService<IPolochonDispatcher>();

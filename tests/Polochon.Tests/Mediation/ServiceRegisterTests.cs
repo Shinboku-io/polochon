@@ -18,7 +18,7 @@ namespace Polochon.Tests.Mediation
         public void AddDispatcher_WithTypeArray_RegistersNotificationPublisherAndOutbox()
         {
             var services = new ServiceCollection();
-            services.AddDispatcher([]);
+            services.AddDispatcher(Type.EmptyTypes);
 
             var provider = services.BuildServiceProvider();
 
@@ -46,7 +46,7 @@ namespace Polochon.Tests.Mediation
         public void AddDispatcher_RegistersOutbox_AsASingleSharedInstance()
         {
             var services = new ServiceCollection();
-            services.AddDispatcher([]);
+            services.AddDispatcher(Type.EmptyTypes);
 
             var provider = services.BuildServiceProvider();
 

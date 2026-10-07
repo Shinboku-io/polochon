@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Polochon.Abstractions.CQRS;
 using Polochon.Abstractions.Messaging;
+using Polochon.Abstractions.Results;
 using Polochon.Messaging;
 using Polochon.Modules;
 using Polochon.Tests.Domain;
@@ -39,7 +40,7 @@ namespace Polochon.Tests.Messaging
         }
 
         /// <summary>Handles the mapped command by recording it - stands in for real business logic.</summary>
-        public sealed class TestCommandHandler : ICommandHandler<TestCommand, Unit>
+        public sealed class TestCommandHandler : ICommandHandler<TestCommand>
         {
             private readonly Recorder recorder;
 
@@ -50,7 +51,7 @@ namespace Polochon.Tests.Messaging
             }
 
             /// <inheritdoc/>
-            public ValueTask<Unit> HandleAsync(TestCommand command, CancellationToken cancellationToken = default)
+            public ValueTask<CommandResult> HandleAsync(TestCommand command, CancellationToken cancellationToken = default)
             {
                 if (command.Payload == "boom")
                 {
@@ -58,7 +59,7 @@ namespace Polochon.Tests.Messaging
                 }
 
                 recorder.Received.Add(command.Payload);
-                return ValueTask.FromResult(default(Unit));
+                return ValueTask.FromResult(CommandResult.Success());
             }
         }
 
@@ -131,8 +132,9 @@ namespace Polochon.Tests.Messaging
         }
 
         /// <summary>
-        /// When the mapped command's handler throws, the original event is routed to the module's
-        /// <see cref="IErrorQueue"/> instead of being silently dropped.
+        /// When the mapped command's handler throws, the module reports it as a failed result, and
+        /// the original event is routed to the module's <see cref="IErrorQueue"/> instead of being
+        /// silently dropped.
         /// </summary>
         [Fact]
         public async Task ExecuteAsync_WhenHandlerThrows_RoutesFailureToErrorQueue()
@@ -157,7 +159,8 @@ namespace Polochon.Tests.Messaging
                 var failure = Assert.Single(errorQueue.Failures);
                 var failedEvent = Assert.IsType<TestIntegrationEvent>(failure.Message);
                 Assert.Equal("boom", failedEvent.Payload);
-                Assert.IsType<InvalidOperationException>(failure.Exception);
+                var exception = Assert.IsType<IntegrationEventHandlingException>(failure.Exception);
+                Assert.Equal(ResultCode.UnexpectedError, exception.Result.Result);
             }
             finally
             {

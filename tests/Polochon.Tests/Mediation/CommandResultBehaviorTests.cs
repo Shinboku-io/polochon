@@ -12,7 +12,9 @@ namespace Polochon.Tests.Mediation
     /// </summary>
     public sealed class CommandResultBehaviorTests
     {
-        private static readonly ResultCode RuleCode = new() { Code = 1001, Status = "RULE_BROKEN" };
+        private static readonly ResultCode RuleCode = new() { Code = -1001, Status = "RULE_BROKEN" };
+
+        private static readonly ResultCode CreatedCode = new() { Code = 1, Status = "CREATED" };
 
         [Fact(DisplayName = "Successful command reports 0/OK")]
         public async Task SuccessReportsOk()
@@ -46,6 +48,33 @@ namespace Polochon.Tests.Mediation
 
             Assert.Equal(RuleCode, result.Result);
             Assert.False(command.Handled);
+        }
+
+        [Fact(DisplayName = "Business success code is reported as a success")]
+        public async Task BusinessSuccessCodeReportsSuccess()
+        {
+            var dispatcher = CreateDispatcher();
+
+            var result = await dispatcher.SendCommandAsync(new ResultCommand { SucceedWith = CreatedCode });
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(CreatedCode, result.Result);
+        }
+
+        [Fact(DisplayName = "Every validation failure is kept on the failed result")]
+        public async Task ValidationFailuresAreKeptOnResult()
+        {
+            var dispatcher = CreateDispatcher();
+            ValidationError[] errors =
+            [
+                new() { Code = RuleCode, Message = "first", MemberName = "A" },
+                new() { Code = ResultCode.ValidationFailed, Message = "second" },
+            ];
+
+            var result = await dispatcher.SendCommandAsync(new ResultCommand { RejectWith = new MessageValidationException(errors) });
+
+            Assert.Equal(RuleCode, result.Result);
+            Assert.Equal(errors, result.Errors);
         }
 
         [Fact(DisplayName = "Uncoded validation failure reports -2/VALIDATION_FAILED")]
@@ -104,6 +133,8 @@ namespace Polochon.Tests.Mediation
 
             public MessageValidationException? RejectWith { get; init; }
 
+            public ResultCode? SucceedWith { get; init; }
+
             public bool Handled { get; set; }
         }
 
@@ -119,9 +150,12 @@ namespace Polochon.Tests.Mediation
             {
                 command.Handled = true;
 
-                return command.ToThrow is null
-                    ? ValueTask.FromResult(CommandResult.Success())
-                    : throw command.ToThrow;
+                if (command.ToThrow is not null)
+                {
+                    throw command.ToThrow;
+                }
+
+                return ValueTask.FromResult(command.SucceedWith is null ? CommandResult.Success() : CommandResult.Success(command.SucceedWith));
             }
         }
 

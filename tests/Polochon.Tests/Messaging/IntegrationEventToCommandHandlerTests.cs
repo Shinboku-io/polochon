@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Polochon.Abstractions.CQRS;
+using Polochon.Abstractions.Domain;
 using Polochon.Abstractions.Messaging;
+using Polochon.Abstractions.Results;
 using Polochon.Mediation;
 using Polochon.Tests.Domain;
 using Xunit;
@@ -34,8 +36,14 @@ namespace Polochon.Tests.Messaging
             public List<string> Received { get; } = [];
         }
 
-        /// <summary>Handles the mapped command by recording it - stands in for real business logic.</summary>
-        public sealed class TestCommandHandler : ICommandHandler<TestCommand, Unit>
+        /// <summary>The failure <see cref="TestCommandHandler"/> reports for the <c>"fail"</c> payload.</summary>
+        public static readonly ResultCode RejectedCode = new() { Code = -100, Status = "REJECTED" };
+
+        /// <summary>
+        /// Handles the mapped command by recording it - stands in for real business logic. Implements
+        /// the <see cref="ICommandHandler{TCommand}"/> alias only, so it must be found by the scan.
+        /// </summary>
+        public sealed class TestCommandHandler : ICommandHandler<TestCommand>
         {
             private readonly Recorder recorder;
 
@@ -46,10 +54,59 @@ namespace Polochon.Tests.Messaging
             }
 
             /// <inheritdoc/>
-            public ValueTask<Unit> HandleAsync(TestCommand command, CancellationToken cancellationToken = default)
+            public ValueTask<CommandResult> HandleAsync(TestCommand command, CancellationToken cancellationToken = default)
             {
                 recorder.Received.Add(command.Payload);
-                return ValueTask.FromResult(default(Unit));
+                return ValueTask.FromResult(command.Payload == "fail" ? CommandResult.Failure(RejectedCode) : CommandResult.Success());
+            }
+        }
+
+        /// <summary>Records every result it is handed instead of throwing on a failure.</summary>
+        public sealed class ResultRecorder
+        {
+            /// <summary>The results received so far, in handling order.</summary>
+            public List<CommandResult> Results { get; } = [];
+        }
+
+        /// <summary>An event of its own, so its event handler is the only one reacting to <see cref="ObservedEvent"/>.</summary>
+        public sealed record ObservedEvent : IIntegrationEvent
+        {
+            /// <summary>Creates the event with the given payload.</summary>
+            public ObservedEvent(string payload)
+            {
+                Payload = payload;
+            }
+
+            /// <summary>An arbitrary marker value.</summary>
+            public string Payload { get; init; }
+
+            /// <inheritdoc/>
+            public Guid Id { get; init; } = Guid.NewGuid();
+
+            /// <inheritdoc/>
+            public DateTimeOffset OccurredAt { get; init; } = DateTimeOffset.UtcNow;
+        }
+
+        /// <summary>Overrides the result hook to record the outcome instead of throwing.</summary>
+        public sealed class ObservingEventToCommandHandler : IntegrationEventToCommandHandler<ObservedEvent, TestCommand>
+        {
+            private readonly ResultRecorder results;
+
+            /// <summary>Creates the handler.</summary>
+            public ObservingEventToCommandHandler(IPolochonDispatcher dispatcher, ResultRecorder results)
+                : base(dispatcher)
+            {
+                this.results = results;
+            }
+
+            /// <inheritdoc/>
+            protected override TestCommand Map(ObservedEvent integrationEvent) => new(integrationEvent.Payload);
+
+            /// <inheritdoc/>
+            protected override ValueTask OnCommandHandledAsync(ObservedEvent integrationEvent, TestCommand command, CommandResult result, CancellationToken cancellationToken)
+            {
+                results.Results.Add(result);
+                return ValueTask.CompletedTask;
             }
         }
 
@@ -102,6 +159,59 @@ namespace Polochon.Tests.Messaging
             var registry = provider.GetRequiredService<DispatcherRegistry>();
 
             Assert.True(registry.NotificationWrappers.ContainsKey(typeof(TestIntegrationEvent)));
+        }
+
+        /// <summary>A handler implementing only the <see cref="ICommandHandler{TCommand}"/> alias is registered by the scan.</summary>
+        [Fact(DisplayName = "Scan registers a handler implementing only the ICommandHandler<TCommand> alias")]
+        public async Task ScanRegistersAliasOnlyCommandHandler()
+        {
+            var services = new ServiceCollection();
+            services.AddSingleton<Recorder>();
+            services.AddDispatcher(typeof(TestCommandHandler));
+
+            var provider = services.BuildServiceProvider();
+            var result = await provider.GetRequiredService<IPolochonDispatcher>().SendCommandAsync(new TestCommand("direct"), TestContext.Current.CancellationToken);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(["direct"], provider.GetRequiredService<Recorder>().Received);
+        }
+
+        /// <summary>By default, a failed result of the mapped command throws so the event is reported as failed.</summary>
+        [Fact(DisplayName = "Failed mapped command throws IntegrationEventHandlingException by default")]
+        public async Task FailedMappedCommandThrowsByDefault()
+        {
+            var services = new ServiceCollection();
+            services.AddSingleton<Recorder>();
+            services.AddDispatcher(typeof(TestEventToCommandHandler), typeof(TestCommandHandler));
+
+            var provider = services.BuildServiceProvider();
+            var publisher = provider.GetRequiredService<INotificationPublisher>();
+
+            var exception = await Assert.ThrowsAsync<IntegrationEventHandlingException>(
+                async () => await publisher.PublishAsync(new TestIntegrationEvent("fail"), TestContext.Current.CancellationToken));
+
+            Assert.Equal(RejectedCode, exception.Result.Result);
+        }
+
+        /// <summary>An overridden result hook receives every result, failures included, without throwing.</summary>
+        [Fact(DisplayName = "Overridden OnCommandHandledAsync receives the result of the mapped command")]
+        public async Task OverriddenHookReceivesResult()
+        {
+            var services = new ServiceCollection();
+            services.AddSingleton<Recorder>();
+            services.AddSingleton<ResultRecorder>();
+            services.AddDispatcher(typeof(ObservingEventToCommandHandler), typeof(TestCommandHandler));
+
+            var provider = services.BuildServiceProvider();
+            var publisher = provider.GetRequiredService<INotificationPublisher>();
+
+            await publisher.PublishAsync(new ObservedEvent("ok"), TestContext.Current.CancellationToken);
+            await publisher.PublishAsync(new ObservedEvent("fail"), TestContext.Current.CancellationToken);
+
+            var results = provider.GetRequiredService<ResultRecorder>().Results;
+            Assert.Equal(2, results.Count);
+            Assert.True(results[0].IsSuccess);
+            Assert.Equal(RejectedCode, results[1].Result);
         }
     }
 }

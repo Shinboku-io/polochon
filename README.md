@@ -64,7 +64,7 @@ public sealed class EchoQueryHandler : IQueryHandler<EchoQuery, EchoResult>
 }
 ```
 
-Commands follow the same shape with `ICommand`/`ICommand<TResponse>` and `ICommandHandler<>`/`ICommandHandler<,>`. Fire-and-forget events use `INotification`/`INotificationHandler<>` and are published through `INotificationPublisher` - unlike a query or command, a notification may have zero, one, or many handlers, and publishing to zero is a normal no-op, not a failure.
+Commands follow the same shape with `ICommand`/`ICommand<TResponse>` and `ICommandHandler<>`/`ICommandHandler<,>`. Every command has a result: `ICommand` and `ICommandHandler<TCommand>` are aliases of `ICommand<CommandResult>` and `ICommandHandler<TCommand, CommandResult>`. A `ResultCode` of zero or more reports a success (`ResultCode.Ok`, or a business success code returned with `CommandResult.Success(code)`), a negative one a failure; a failure raised by a validator carries every validation error in `CommandResult.Errors`. Fire-and-forget events use `INotification`/`INotificationHandler<>` and are published through `INotificationPublisher` - unlike a query or command, a notification may have zero, one, or many handlers, and publishing to zero is a normal no-op, not a failure.
 
 ### 4. Create a module
 

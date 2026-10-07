@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `CommandResult.Errors`: every validation failure found when a validator rejected the command,
+  filled by `CommandResultBehavior` from `MessageValidationException.Errors`, and
+  `CommandResult.Failure(ResultCode, IReadOnlyList<ValidationError>)`.
+- `IntegrationEventToCommandHandler.OnCommandHandledAsync` and `IntegrationEventHandlingException`
+  (see Changed).
 - `Polochon.FeatureManagement`: `WithFeatureManagement()` on a module builder adds
   Microsoft.FeatureManagement (`IFeatureManager`, `IVariantFeatureManager`) to the module's isolated
   container. Feature definitions are forwarded from the host's `IFeatureDefinitionProvider`, so the
@@ -36,6 +41,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   host collects and at the host's sampling rate.
 
 ### Changed
+
+- **Breaking:** there are no commands without a result any more. `ICommand` is now an alias of
+  `ICommand<CommandResult>` (instead of `ICommand<Unit>`), and `ICommandHandler<TCommand>` an alias
+  of `ICommandHandler<TCommand, CommandResult>` - so a handler implementing only the one-argument
+  interface is now found by the assembly scan (it was silently skipped before). The
+  `IPolochonDispatcher.SendCommandAsync(ICommand)` overload returning a bare `ValueTask` was removed:
+  `SendCommandAsync` always returns the command's response. Migration: return `CommandResult`
+  instead of `Unit` from `ICommand` handlers and validators. Exceptions thrown while handling an
+  `ICommand` are now reported as a failed `CommandResult` by `CommandResultBehavior` instead of
+  propagating.
+- **Breaking:** `ResultCode.IsOk` is now `Code >= 0`: zero or positive codes report a success
+  (business success codes such as `ITEM_CREATED`), negative codes a failure. Migration: make every
+  module failure code negative. `CommandResult.Success(ResultCode)` reports a business success
+  code; `CommandResult.Success(ResultCode)` and `CommandResult.Failure(ResultCode)` throw an
+  `ArgumentException` when handed a code of the wrong sign.
+- `IntegrationEventToCommandHandler<TEvent, TCommand>` now awaits the mapped command's result and
+  hands it to the new `protected virtual OnCommandHandledAsync`. By default, a failed result throws
+  the new `IntegrationEventHandlingException`, so the event is still reported as failed (and sent to
+  the error queue by the inbox processor) now that command exceptions are reported as results.
 
 - **Breaking:** `IModularModuleBuilder<TModule>.ConfigureModule` now takes an
   `Action<IServiceCollection, TModule, IServiceProvider>`; the third argument is the host's root

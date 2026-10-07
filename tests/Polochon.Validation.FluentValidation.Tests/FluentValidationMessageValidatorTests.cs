@@ -15,9 +15,9 @@ namespace Polochon.Validation.FluentValidation.Tests
     /// </summary>
     public sealed class FluentValidationMessageValidatorTests
     {
-        private static readonly ResultCode NameRequired = new() { Code = 1001, Status = "NAME_REQUIRED" };
-        private static readonly ResultCode NameTooLong = new() { Code = 1002, Status = "NAME_TOO_LONG" };
-        private static readonly ResultCode SizeNegative = new() { Code = 1003, Status = "SIZE_NEGATIVE" };
+        private static readonly ResultCode NameRequired = new() { Code = -1001, Status = "NAME_REQUIRED" };
+        private static readonly ResultCode NameTooLong = new() { Code = -1002, Status = "NAME_TOO_LONG" };
+        private static readonly ResultCode SizeNegative = new() { Code = -1003, Status = "SIZE_NEGATIVE" };
 
         [Fact(DisplayName = "Valid command reports 0/OK and reaches the handler")]
         public async Task ValidCommandReportsOk()

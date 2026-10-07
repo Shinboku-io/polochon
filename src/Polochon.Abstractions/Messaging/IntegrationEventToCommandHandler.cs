@@ -1,5 +1,6 @@
 using Polochon.Abstractions.CQRS;
 using Polochon.Abstractions.Domain;
+using Polochon.Abstractions.Results;
 
 namespace Polochon.Abstractions.Messaging
 {
@@ -47,11 +48,38 @@ namespace Polochon.Abstractions.Messaging
         protected abstract TCommand Map(TEvent integrationEvent);
 
         /// <summary>
+        /// Called once the mapped command has been handled, with its result. By default a failed
+        /// result throws an <see cref="IntegrationEventHandlingException"/>, so the event is
+        /// reported as failed (e.g. sent to the module's error queue by the inbox processor) instead
+        /// of being silently dropped. Override to react to the outcome (logging, compensation...);
+        /// an override that does not throw marks the event as handled.
+        /// </summary>
+        /// <param name="integrationEvent">The event that was handled.</param>
+        /// <param name="command">The command the event was mapped to.</param>
+        /// <param name="result">The result of the command.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A task representing the async operation.</returns>
+        /// <exception cref="IntegrationEventHandlingException">Thrown by default when <paramref name="result"/> is a failure.</exception>
+        protected virtual ValueTask OnCommandHandledAsync(TEvent integrationEvent, TCommand command, CommandResult result, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(result);
+
+            return result.IsSuccess
+                ? ValueTask.CompletedTask
+                : throw new IntegrationEventHandlingException(integrationEvent, result);
+        }
+
+        /// <summary>
         /// Explicit implementation: dispatch is fixed by this base class, so a derived class can
-        /// only ever supply <see cref="Map"/> - it cannot override how (or whether) the mapped
+        /// only ever supply <see cref="Map"/> and react to the result in
+        /// <see cref="OnCommandHandledAsync"/> - it cannot override how (or whether) the mapped
         /// command gets sent.
         /// </summary>
-        ValueTask INotificationHandler<TEvent>.Handle(TEvent notification, CancellationToken cancellationToken)
-            => dispatcher.SendCommandAsync(Map(notification), cancellationToken);
+        async ValueTask INotificationHandler<TEvent>.Handle(TEvent notification, CancellationToken cancellationToken)
+        {
+            var command = Map(notification);
+            var result = await dispatcher.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
+            await OnCommandHandledAsync(notification, command, result, cancellationToken).ConfigureAwait(false);
+        }
     }
 }

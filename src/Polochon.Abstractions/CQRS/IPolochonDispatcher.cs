@@ -16,16 +16,8 @@
         ValueTask<TResponse> SendQueryAsync<TResponse>(IQuery<TResponse> query, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Sends a command that doesn't return a value.
-        /// </summary>
-        /// <param name="command">The command to send.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A task representing the async operation.</returns>
-        /// <exception cref="MessageValidationException">Thrown when a validator rejects the message; the handler is not called.</exception>
-        ValueTask SendCommandAsync(ICommand command, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Sends a command and returns the response.
+        /// Sends a command and returns the response. An <see cref="ICommand"/> returns its
+        /// <see cref="Results.CommandResult"/>.
         /// </summary>
         /// <typeparam name="TResponse">The type of the response.</typeparam>
         /// <param name="command">The command to send.</param>

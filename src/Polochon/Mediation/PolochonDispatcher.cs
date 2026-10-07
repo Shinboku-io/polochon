@@ -33,21 +33,6 @@ namespace Polochon.Mediation
         }
 
         /// <inheritdoc/>
-        public async ValueTask SendCommandAsync(ICommand command, CancellationToken cancellationToken = default)
-        {
-            ArgumentNullException.ThrowIfNull(command);
-
-            if (!registry.CommandWrappers.TryGetValue(command.GetType(), out var wrapper))
-            {
-                throw new InvalidOperationException(
-                    $"No handler registered for request type '{command.GetType().FullName}'.");
-            }
-
-            // Reference-type cast - cheap, no boxing.
-            _ = await ((IMessageHandlerWrapper<Unit>)wrapper).HandleAsync(command, provider, cancellationToken);
-        }
-
-        /// <inheritdoc/>
         public async ValueTask<TResponse> SendCommandAsync<TResponse>(ICommand<TResponse> command, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(command);

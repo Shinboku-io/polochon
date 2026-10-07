@@ -16,7 +16,7 @@ namespace Polochon.Tests.Telemetry
     {
         private const string ModuleName = "telemetry-dispatch-tests";
 
-        private static readonly ResultCode Rejected = new() { Code = 42, Status = "PROBE_REJECTED" };
+        private static readonly ResultCode Rejected = new() { Code = -42, Status = "PROBE_REJECTED" };
 
         private readonly TelemetryModule module = new(ModuleName);
         private readonly ActivityCollector activities = new(PolochonTelemetry.GetModuleSourceName(ModuleName));

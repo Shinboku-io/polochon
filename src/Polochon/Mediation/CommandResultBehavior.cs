@@ -9,7 +9,7 @@ namespace Polochon.Mediation
     /// their caller always gets a <see cref="ResultCode"/> back:
     /// <list type="bullet">
     ///   <item><see cref="BusinessRuleException"/> reports its own code.</item>
-    ///   <item><see cref="MessageValidationException"/> reports its code, or <see cref="ResultCode.ValidationFailed"/>.</item>
+    ///   <item><see cref="MessageValidationException"/> reports its code, or <see cref="ResultCode.ValidationFailed"/>, and every validation failure in <see cref="CommandResult.Errors"/>.</item>
     ///   <item>Any other exception is logged and reported as <see cref="ResultCode.UnexpectedError"/>.</item>
     /// </list>
     /// Cancellation still propagates. Messages with any other response type pass through untouched.
@@ -53,7 +53,7 @@ namespace Polochon.Mediation
             }
             catch (MessageValidationException ex)
             {
-                return Failure(ex.Error ?? ResultCode.ValidationFailed);
+                return Failure(ex.Error ?? ResultCode.ValidationFailed, ex.Errors);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -67,6 +67,8 @@ namespace Polochon.Mediation
         }
 
         // Only reached when TResponse is CommandResult (checked above).
-        private static TResponse Failure(ResultCode error) => (TResponse)(object)CommandResult.Failure(error);
+        private static TResponse Failure(ResultCode error) => Failure(error, []);
+
+        private static TResponse Failure(ResultCode error, IReadOnlyList<ValidationError> errors) => (TResponse)(object)CommandResult.Failure(error, errors);
     }
 }

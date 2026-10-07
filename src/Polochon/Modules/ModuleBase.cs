@@ -66,14 +66,6 @@ namespace Polochon.Modules
 
         /// <inheritdoc/>
         /// <remarks>Handled in a DI scope of its own - see <see cref="SendQueryAsync{TResponse}"/>.</remarks>
-        public async ValueTask SendCommandAsync(ICommand command, CancellationToken cancellationToken = default)
-        {
-            await using var scope = ServiceProvider.CreateAsyncScope();
-            await scope.ServiceProvider.GetRequiredService<IPolochonDispatcher>().SendCommandAsync(command, cancellationToken);
-        }
-
-        /// <inheritdoc/>
-        /// <remarks>Handled in a DI scope of its own - see <see cref="SendQueryAsync{TResponse}"/>.</remarks>
         public async ValueTask<TResponse> SendCommandAsync<TResponse>(ICommand<TResponse> command, CancellationToken cancellationToken = default)
         {
             await using var scope = ServiceProvider.CreateAsyncScope();

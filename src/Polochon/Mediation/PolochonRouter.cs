@@ -15,26 +15,6 @@ namespace Polochon.Mediation
             this.modules.AddRange(modules);
         }
 
-        public ValueTask SendCommandAsync(ICommand command, CancellationToken cancellationToken = default)
-        {
-            // Already found
-            if (moduleMapping.TryGetValue(command.GetType(), out var module))
-            {
-                return module.SendCommandAsync(command, cancellationToken);
-            }
-
-            // find mapping
-            var foundModule = modules.FirstOrDefault(m => m.CanHandleCommand(command));
-
-            if (foundModule != null)
-            {
-                _ = moduleMapping.AddOrUpdate(command.GetType(), foundModule, (key, oldValue) => foundModule);
-                return foundModule.SendCommandAsync(command, cancellationToken);
-            }
-
-            throw new InvalidOperationException($"No module found to handle command of type {command.GetType().Name}");
-        }
-
         public ValueTask<TResponse> SendCommandAsync<TResponse>(ICommand<TResponse> command, CancellationToken cancellationToken = default)
         {
             // Already found

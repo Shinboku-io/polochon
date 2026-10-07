@@ -5,6 +5,7 @@ using Polochon.Abstractions.CQRS;
 using Polochon.Abstractions.Domain;
 using Polochon.Abstractions.Messaging;
 using Polochon.Abstractions.Modules;
+using Polochon.Abstractions.Results;
 using Polochon.Abstractions.Security;
 using Polochon.Messaging;
 using Polochon.Modules;
@@ -60,7 +61,7 @@ namespace Polochon.Tests.Security
         }
 
         /// <summary>Allows <see cref="GuardedCommand"/> for managers and the system only.</summary>
-        public sealed class GuardedCommandValidator : IMessageValidator<GuardedCommand, Unit>
+        public sealed class GuardedCommandValidator : IMessageValidator<GuardedCommand, CommandResult>
         {
             private readonly IUserIdentityProvider user;
 
@@ -78,7 +79,7 @@ namespace Polochon.Tests.Security
         }
 
         /// <summary>Records the user the command was handled for.</summary>
-        public sealed class GuardedCommandHandler : ICommandHandler<GuardedCommand, Unit>
+        public sealed class GuardedCommandHandler : ICommandHandler<GuardedCommand>
         {
             private readonly IUserIdentityProvider user;
             private readonly IdentityRecorder recorder;
@@ -91,10 +92,10 @@ namespace Polochon.Tests.Security
             }
 
             /// <inheritdoc/>
-            public ValueTask<Unit> HandleAsync(GuardedCommand command, CancellationToken cancellationToken = default)
+            public ValueTask<CommandResult> HandleAsync(GuardedCommand command, CancellationToken cancellationToken = default)
             {
                 recorder.HandledBy.Add(user.DisplayName);
-                return ValueTask.FromResult(Unit.Value);
+                return ValueTask.FromResult(CommandResult.Success());
             }
         }
 
@@ -224,15 +225,16 @@ namespace Polochon.Tests.Security
 
             using (AmbientUserContext.Use(CreateUser("manager", "InventoryManager")))
             {
-                await module.SendCommandAsync(new GuardedCommand("allowed"));
+                var result = await module.SendCommandAsync(new GuardedCommand("allowed"));
+                Assert.True(result.IsSuccess);
             }
 
             Assert.Equal(["manager"], recorder.HandledBy);
         }
 
         /// <summary>
-        /// A user the validator rejects gets a <see cref="MessageValidationException"/>, and the
-        /// handler is not called.
+        /// A user the validator rejects gets a failed result reporting
+        /// <see cref="ResultCode.ValidationFailed"/>, and the handler is not called.
         /// </summary>
         [Fact(DisplayName = "Validator in module rejects an unauthorized host caller")]
         public async Task ValidatorInModuleRejectsUnauthorizedHostCaller()
@@ -243,10 +245,9 @@ namespace Polochon.Tests.Security
 
             using (AmbientUserContext.Use(CreateUser("teacher", "Teacher")))
             {
-                var exception = await Assert.ThrowsAsync<MessageValidationException>(
-                    async () => await module.SendCommandAsync(new GuardedCommand("blocked")));
+                var result = await module.SendCommandAsync(new GuardedCommand("blocked"));
 
-                Assert.Contains("'teacher'", exception.Message, StringComparison.Ordinal);
+                Assert.Equal(ResultCode.ValidationFailed, result.Result);
             }
 
             Assert.Empty(recorder.HandledBy);
@@ -260,9 +261,9 @@ namespace Polochon.Tests.Security
             await module.InitializeAsync();
             var recorder = module.GetRequiredService<IdentityRecorder>();
 
-            _ = await Assert.ThrowsAsync<MessageValidationException>(
-                async () => await module.SendCommandAsync(new GuardedCommand("anonymous")));
+            var result = await module.SendCommandAsync(new GuardedCommand("anonymous"));
 
+            Assert.Equal(ResultCode.ValidationFailed, result.Result);
             Assert.Empty(recorder.HandledBy);
         }
 

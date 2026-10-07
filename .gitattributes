@@ -1,0 +1,17 @@
+# Line endings: stored as LF in the repository, checked out as CRLF in every working tree
+# (Visual Studio on Windows and the Linux dev container alike), whatever the local
+# core.autocrlf setting - consistent with .editorconfig's end_of_line = crlf.
+* text=auto eol=crlf
+
+# Shell scripts must keep LF to run on Linux.
+*.sh text eol=lf
+
+# Binaries: never converted.
+*.png binary
+*.jpg binary
+*.ico binary
+*.gif binary
+*.woff binary
+*.woff2 binary
+*.dll binary
+*.snk binary

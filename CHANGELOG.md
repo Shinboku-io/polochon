@@ -4,7 +4,9 @@ All notable changes to the Polochon kernel are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - Unreleased
+
+Minor release: new features only, no breaking change.
 
 ### Added
 
@@ -17,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `InboxProcessingOptions.IdleSweep` optionally reads the inbox after that long without a delivery,
   for messages that become readable again without one (e.g. after an interrupted processing attempt).
   `ModuleBase.Inbox` now raises the module's delivery signal after each write.
+
+## [0.5.0] - 2026-10-07
+
+### Added
+
 - `CommandResult.Errors`: every validation failure found when a validator rejected the command,
   filled by `CommandResultBehavior` from `MessageValidationException.Errors`, and
   `CommandResult.Failure(ResultCode, IReadOnlyList<ValidationError>)`.

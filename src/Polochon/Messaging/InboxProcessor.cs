@@ -1,12 +1,8 @@
-using System.Security.Claims;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Polochon.Abstractions.CQRS;
 using Polochon.Abstractions.Messaging;
-using Polochon.Abstractions.Security;
 using Polochon.Modules;
-using Polochon.Security;
 
 namespace Polochon.Messaging
 {
@@ -81,13 +77,6 @@ namespace Polochon.Messaging
         /// <inheritdoc/>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var inboxReader = module.GetRequiredService<IInboxReader>();
-            var errorQueue = module.GetRequiredService<IErrorQueue>();
-
-            // Events are processed in the processor's own context, not on behalf of the user
-            // whose command raised them: that command was already authorized when it mutated state.
-            var systemPrincipal = SystemIdentity.CreatePrincipal($"{module.Name} inbox processor");
-
             try
             {
                 if (options.Mode == InboxProcessingMode.InProcess)
@@ -95,12 +84,12 @@ namespace Polochon.Messaging
                     var signal = module.GetRequiredService<InboxSignal>();
 
                     // Once up front: nothing will signal what a previous run left in a persistent inbox.
-                    await ProcessPendingMessagesAsync(inboxReader, errorQueue, systemPrincipal, stoppingToken);
+                    _ = await InboxDrainer.DrainAsync(module, logger, stoppingToken);
 
                     while (!stoppingToken.IsCancellationRequested)
                     {
                         await WaitForDeliveryAsync(signal, stoppingToken);
-                        await ProcessPendingMessagesAsync(inboxReader, errorQueue, systemPrincipal, stoppingToken);
+                        _ = await InboxDrainer.DrainAsync(module, logger, stoppingToken);
                     }
                 }
                 else
@@ -108,7 +97,7 @@ namespace Polochon.Messaging
                     using var timer = new PeriodicTimer(options.Clock);
                     while (await timer.WaitForNextTickAsync(stoppingToken))
                     {
-                        await ProcessPendingMessagesAsync(inboxReader, errorQueue, systemPrincipal, stoppingToken);
+                        _ = await InboxDrainer.DrainAsync(module, logger, stoppingToken);
                     }
                 }
             }
@@ -139,47 +128,6 @@ namespace Polochon.Messaging
             catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
             {
                 logger.LogDebug("Inbox of module {Module} idle for {IdleSweep}, reading it anyway", module.Name, idleSweep);
-            }
-        }
-
-        private async Task ProcessPendingMessagesAsync(
-            IInboxReader inboxReader,
-            IErrorQueue errorQueue,
-            ClaimsPrincipal systemPrincipal,
-            CancellationToken stoppingToken)
-        {
-            await foreach (var message in inboxReader.ReadAllMessagesAsync(stoppingToken))
-            {
-                logger.LogDebug("Processing inbox message {MessageType} for module {Module}", message.GetType(), module.Name);
-
-                // A fresh DI scope per message: handlers (and whatever they depend on
-                // transitively, e.g. a unit of work) are meant to live for one unit of
-                // work, not for the lifetime of this long-running background service.
-                using var scope = module.ServiceProvider.CreateScope();
-                using var identity = AmbientUserContext.Use(systemPrincipal);
-                var publisher = scope.ServiceProvider.GetRequiredService<INotificationPublisher>();
-
-                try
-                {
-                    // Not the stopping token: let an in-flight message finish even while shutting down.
-                    await publisher.PublishAsync(message, CancellationToken.None);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Error processing inbox message {MessageType} for module {Module}", message.GetType(), module.Name);
-
-                    try
-                    {
-                        await errorQueue.PublishFailedMessageAsync(message, ex, CancellationToken.None);
-                    }
-                    catch (Exception errorQueueEx)
-                    {
-                        // The error queue is the last line of defence - if it also fails,
-                        // there is nowhere left to route the message but the log, so it
-                        // does not silently vanish.
-                        logger.LogError(errorQueueEx, "Error queue itself failed for message {MessageType} for module {Module}", message.GetType(), module.Name);
-                    }
-                }
             }
         }
     }

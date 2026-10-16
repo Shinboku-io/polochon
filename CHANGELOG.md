@@ -25,6 +25,13 @@ Minor release: new features only, no breaking change.
   `InboxProcessingOptions.IdleSweep` optionally reads the inbox after that long without a delivery,
   for messages that become readable again without one (e.g. after an interrupted processing attempt).
   `ModuleBase.Inbox` now raises the module's delivery signal after each write.
+- On-demand inbox drain, for a module deployed on its own and started only when its inbox has
+  messages (e.g. an Azure Container Apps job scaled by KEDA on the inbox queue) instead of polled by
+  `WithInboxProcessing`. `ModuleBase.ProcessInboxAsync()` reads the inbox until it is empty,
+  handling each message exactly like `InboxProcessor`, and returns an `InboxDrainResult` (processed
+  and failed counts). `EventBus.RelayPendingMessagesAsync()` relays pending outbox messages right
+  away instead of on the next bus tick. `IServiceProvider.DrainInboxAsync<TModule>()` chains both, so
+  the process can stop without losing the integration events its handlers published.
 
 ## [0.5.0] - 2026-10-07
 

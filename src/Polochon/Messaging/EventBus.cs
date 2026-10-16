@@ -55,6 +55,68 @@ namespace Polochon.Messaging
             await base.StopAsync(cancellationToken);
         }
 
+        /// <summary>
+        /// Relays, right now, every integration event currently waiting in a module's outbox to the
+        /// inbox of every other module with a handler for it - the same pass the bus runs on its
+        /// own clock. Waits for a pass already in progress to finish first.
+        /// </summary>
+        /// <remarks>
+        /// For a process about to exit, e.g. after <c>ModuleBase.ProcessInboxAsync</c> in a job:
+        /// outboxes are in memory, so whatever the handled messages published and the clock has not
+        /// relayed yet would otherwise be lost with the process. Delivery errors are logged, not
+        /// thrown, as on the clock.
+        /// </remarks>
+        /// <param name="cancellationToken">Cancels waiting for a pass in progress, and stops reading outboxes; a message being delivered is still delivered.</param>
+        /// <returns>A task that completes once the pass is done.</returns>
+        public async Task RelayPendingMessagesAsync(CancellationToken cancellationToken = default)
+        {
+            await processingLock.WaitAsync(cancellationToken);
+            try
+            {
+                logger.LogDebug("Looking for new messages at {Time}", DateTime.UtcNow);
+
+                // Don't pass the cancellation token to the message processing to allow graceful completion of in-flight messages
+                var token = CancellationToken.None;
+
+                foreach (var module in modules)
+                {
+                    try
+                    {
+                        await foreach (var item in module.Outbox.DrainPendingMessagesAsync(cancellationToken))
+                        {
+                            logger.LogDebug("Found message {MessageType} in module {Type}", item.GetType(), module.GetType());
+
+                            // Only relay to modules that have a registered handler for this
+                            // event, mirroring how commands/queries are routed to the one
+                            // module that owns them (CanHandleCommand/CanHandleQuery) -
+                            // except an integration event is pub/sub, so more than one
+                            // module can match.
+                            foreach (var destinationModule in modules.Where(x => x != module && x.CanHandleIntegrationEvent(item)))
+                            {
+                                try
+                                {
+                                    await destinationModule.Inbox.PublishMessageAsync(item, token);
+                                }
+                                catch (Exception ex)
+                                {
+                                    logger.LogError(ex, "Error sending message to module {Type}", destinationModule.GetType());
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Fire and forget message delivery.
+                        logger.LogError(ex, "Error draining outbox for module {Type}", module.GetType());
+                    }
+                }
+            }
+            finally
+            {
+                _ = processingLock.Release();
+            }
+        }
+
         /// <inheritdoc/>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
@@ -70,51 +132,7 @@ namespace Polochon.Messaging
                         break;
                     }
 
-                    await processingLock.WaitAsync(stoppingToken);
-                    try
-                    {
-                        logger.LogDebug("Looking for new messages at {Time}", DateTime.UtcNow);
-
-                        // Don't pass the stopping token to the message processing to allow graceful completion of in-flight messages
-                        var token = CancellationToken.None;
-
-                        foreach (var module in modules)
-                        {
-                            try
-                            {
-                                await foreach (var item in module.Outbox.DrainPendingMessagesAsync(stoppingToken))
-                                {
-                                    logger.LogDebug("Found message {MessageType} in module {Type}", item.GetType(), module.GetType());
-
-                                    // Only relay to modules that have a registered handler for this
-                                    // event, mirroring how commands/queries are routed to the one
-                                    // module that owns them (CanHandleCommand/CanHandleQuery) -
-                                    // except an integration event is pub/sub, so more than one
-                                    // module can match.
-                                    foreach (var destinationModule in modules.Where(x => x != module && x.CanHandleIntegrationEvent(item)))
-                                    {
-                                        try
-                                        {
-                                            await destinationModule.Inbox.PublishMessageAsync(item, token);
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            logger.LogError(ex, "Error sending message to module {Type}", destinationModule.GetType());
-                                        }
-                                    }
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                // Fire and forget message delivery.
-                                logger.LogError(ex, "Error draining outbox for module {Type}", module.GetType());
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        _ = processingLock.Release();
-                    }
+                    await RelayPendingMessagesAsync(stoppingToken);
                 }
             }
             catch (TaskCanceledException)

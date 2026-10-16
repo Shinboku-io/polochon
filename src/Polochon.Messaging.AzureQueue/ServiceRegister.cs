@@ -28,6 +28,8 @@ namespace Polochon.Messaging.AzureQueue
         /// <typeparam name="TModule">The module type this builder was created for.</typeparam>
         /// <param name="builder">The module builder to configure.</param>
         /// <param name="options">Connects this module's inbox and error queue to a specific Azure Storage Queue account.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="builder"/> or <paramref name="options"/> is <c>null</c>.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><see cref="PersistentInboxOptions.MaxDequeueCount"/> is less than 1.</exception>
         public static IModularModuleBuilder<TModule> WithAzureQueueInbox<TModule>(
             this IModularModuleBuilder<TModule> builder,
             PersistentInboxOptions options)
@@ -35,6 +37,9 @@ namespace Polochon.Messaging.AzureQueue
         {
             ArgumentNullException.ThrowIfNull(builder);
             ArgumentNullException.ThrowIfNull(options);
+
+            // Fail at registration, not when the module first resolves its inbox.
+            ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxDequeueCount, 1, nameof(options));
 
             return builder.ConfigureModule((services, _, _) =>
             {

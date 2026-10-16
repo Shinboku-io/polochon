@@ -40,6 +40,44 @@ namespace Polochon.Messaging
         }
 
         /// <summary>
+        /// Activates this module's inbox processing as configured by <paramref name="options"/>:
+        /// registers a per-module <see cref="InboxProcessor"/> that reads every integration event
+        /// buffered in this module's inbox - on a fixed clock, or only when this process delivers
+        /// one (see <see cref="InboxProcessingMode"/>) - and republishes it through the module's own
+        /// notification pipeline.
+        /// </summary>
+        /// <remarks>
+        /// Use <see cref="InboxProcessingMode.InProcess"/> when every module publishing to this one
+        /// runs in the same process (a modular monolith): a persistent inbox (e.g. an Azure Storage
+        /// Queue) is then only read when a message is actually delivered, instead of every
+        /// <see cref="InboxProcessingOptions.Clock"/>. Keep <see cref="InboxProcessingMode.Polling"/>
+        /// when other processes can deliver into this module's inbox. Opt-in and per module for the
+        /// same reasons as <see cref="WithInboxProcessing{TModule}(IModularModuleBuilder{TModule}, TimeSpan?)"/>.
+        /// </remarks>
+        /// <typeparam name="TModule">The concrete module type the builder was created for.</typeparam>
+        /// <param name="builder">The module builder to configure.</param>
+        /// <param name="options">When to read the module's inbox.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="builder"/> or <paramref name="options"/> is <c>null</c>.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="options"/> is invalid - see <see cref="InboxProcessingOptions"/>.</exception>
+        public static IModularModuleBuilder<TModule> WithInboxProcessing<TModule>(
+            this IModularModuleBuilder<TModule> builder,
+            InboxProcessingOptions options)
+            where TModule : ModuleBase
+        {
+            ArgumentNullException.ThrowIfNull(builder);
+            ArgumentNullException.ThrowIfNull(options);
+
+            // Fail at registration, not when the host starts the processor.
+            options.Validate();
+
+            return builder.ConfigureHostServices(services =>
+                services.AddHostedService(sp => new InboxProcessor(
+                    sp.GetServices<IModularModule>().OfType<TModule>().Single(),
+                    options,
+                    sp.GetRequiredService<ILogger<InboxProcessor>>())));
+        }
+
+        /// <summary>
         /// Drains <typeparamref name="TModule"/>'s inbox once (see <see cref="ModuleBase.ProcessInboxAsync"/>),
         /// then relays the integration events its handlers published (see
         /// <see cref="EventBus.RelayPendingMessagesAsync"/>), so a process started only to consume

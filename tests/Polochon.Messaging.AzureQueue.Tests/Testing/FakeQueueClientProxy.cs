@@ -12,7 +12,7 @@ namespace Polochon.Messaging.AzureQueue.Tests.Testing
     /// </summary>
     internal sealed class FakeQueueClientProxy : IQueueClientProxy
     {
-        private readonly Queue<string> messages = new();
+        private readonly Queue<(string Body, long DequeueCount)> messages = new();
 
         /// <summary>Every message ever sent to this queue, in send order - kept even after being received/deleted.</summary>
         public List<string> SentMessages { get; } = [];
@@ -28,7 +28,7 @@ namespace Polochon.Messaging.AzureQueue.Tests.Testing
 
         public Task<Response<SendReceipt>> SendMessageAsync(string messageText, CancellationToken cancellationToken = default)
         {
-            messages.Enqueue(messageText);
+            messages.Enqueue((messageText, 1));
             SentMessages.Add(messageText);
 
             var receipt = QueuesModelFactory.SendReceipt(
@@ -41,6 +41,14 @@ namespace Polochon.Messaging.AzureQueue.Tests.Testing
             return Task.FromResult(Response.FromValue(receipt, new FakeAzureResponse()));
         }
 
+        /// <summary>
+        /// Puts a message on the queue that will be received with the given dequeue count, as if
+        /// earlier attempts had received it without deleting it (e.g. the process crashed while
+        /// handling it).
+        /// </summary>
+        public void EnqueueRedelivered(string messageText, long dequeueCount)
+            => messages.Enqueue((messageText, dequeueCount));
+
         public Task<Response<PeekedMessage[]>> PeekMessagesAsync(int? maxMessages = 32, CancellationToken cancellationToken = default)
             => Task.FromResult(Response.FromValue(Array.Empty<PeekedMessage>(), (Response)new FakeAzureResponse()));
 
@@ -49,12 +57,12 @@ namespace Polochon.Messaging.AzureQueue.Tests.Testing
             var received = new List<QueueMessage>();
             while (received.Count < maxMessages && messages.Count > 0)
             {
-                var body = messages.Dequeue();
+                var (body, dequeueCount) = messages.Dequeue();
                 received.Add(QueuesModelFactory.QueueMessage(
                     messageId: Guid.NewGuid().ToString(),
                     popReceipt: Guid.NewGuid().ToString(),
                     messageText: body,
-                    dequeueCount: 1));
+                    dequeueCount: dequeueCount));
             }
 
             return Task.FromResult(Response.FromValue(received.ToArray(), (Response)new FakeAzureResponse()));

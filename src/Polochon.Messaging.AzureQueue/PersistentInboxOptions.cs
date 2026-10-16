@@ -23,5 +23,20 @@ namespace Polochon.Messaging.AzureQueue
         /// processing (see <see cref="IErrorQueue"/>).
         /// </summary>
         public string ErrorQueueName { get; set; } = "error-queue";
+
+        /// <summary>
+        /// How many times a message may be received from the inbox queue before it is rejected as
+        /// poison: once its dequeue count exceeds this, it is moved to the error queue without
+        /// being processed again. Defaults to 5; must be at least 1.
+        /// </summary>
+        /// <remarks>
+        /// A message is only received again when an earlier attempt did not complete - the process
+        /// stopped or crashed while handling it, or handling took longer than the visibility timeout.
+        /// Without this limit, a message that crashes the process every time would be retried
+        /// forever. A handler that throws does not count: that failure already routes the message to
+        /// the error queue on the first attempt. Messages received in the same batch as a crashing
+        /// one are received again too, so keep some headroom above 1.
+        /// </remarks>
+        public int MaxDequeueCount { get; set; } = 5;
     }
 }

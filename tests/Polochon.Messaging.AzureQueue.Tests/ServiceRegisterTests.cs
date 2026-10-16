@@ -84,5 +84,17 @@ namespace Polochon.Messaging.AzureQueue.Tests
 
             Assert.Throws<ArgumentNullException>(() => builder.WithAzureQueueInbox(null!));
         }
+
+        /// <summary><c>WithAzureQueueInbox</c> refuses a max dequeue count below one at registration.</summary>
+        [Fact(DisplayName = "WithAzureQueueInbox rejects a max dequeue count below one")]
+        public void WithAzureQueueInboxRejectsMaxDequeueCountBelowOne()
+        {
+            var services = new ServiceCollection();
+            var builder = services.AddModule<FakeModule>();
+            var options = CreateOptions();
+            options.MaxDequeueCount = 0;
+
+            _ = Assert.Throws<ArgumentOutOfRangeException>(() => builder.WithAzureQueueInbox(options));
+        }
     }
 }

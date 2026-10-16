@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `Polochon.Messaging.AzureQueue`: poison message rejection. `PersistentInboxOptions.MaxDequeueCount`
+  (default 5) caps how many times a message can be received from the inbox queue. Past that, the
+  message is moved to the error queue unprocessed and deleted, instead of being retried forever.
+  This happens when earlier attempts never completed, e.g. a message that crashes the process or
+  whose handling outlasts the visibility timeout. A handler that throws still sends the message to
+  the error queue on the first attempt, as before.
 - `CommandResult.Errors`: every validation failure found when a validator rejected the command,
   filled by `CommandResultBehavior` from `MessageValidationException.Errors`, and
   `CommandResult.Failure(ResultCode, IReadOnlyList<ValidationError>)`.

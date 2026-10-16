@@ -7,6 +7,7 @@ using Polochon.Abstractions.Messaging;
 using Polochon.Abstractions.Modules;
 using Polochon.Logging;
 using Polochon.Mediation;
+using Polochon.Messaging;
 using Polochon.Security;
 using Polochon.Telemetry;
 
@@ -94,7 +95,11 @@ namespace Polochon.Modules
         }
 
         /// <inheritdoc/>
-        public IInboxWriter Inbox => GetRequiredService<IInboxWriter>();
+        /// <remarks>
+        /// Every delivery through this writer also wakes the module's inbox processor when it runs
+        /// in <see cref="InboxProcessingMode.InProcess"/> mode.
+        /// </remarks>
+        public IInboxWriter Inbox => new SignalingInboxWriter(GetRequiredService<IInboxWriter>(), GetRequiredService<InboxSignal>());
 
         /// <inheritdoc/>
         public IOutboxReader Outbox => GetRequiredService<IOutboxReader>();

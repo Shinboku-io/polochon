@@ -50,6 +50,7 @@ namespace Polochon.Mediation
             _ = services.AddSingleton<IInbox, MemoryInbox>();
             _ = services.AddSingleton<IInboxWriter>(sp => sp.GetRequiredService<IInbox>());
             _ = services.AddSingleton<IInboxReader>(sp => sp.GetRequiredService<IInbox>());
+            _ = services.AddSingleton<InboxSignal>();
             _ = services.AddSingleton<IErrorQueue, MemoryErrorQueue>();
 
             return services;

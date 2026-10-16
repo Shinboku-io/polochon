@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `WithInboxProcessing(InboxProcessingOptions)` and `InboxProcessingMode`: an inbox processor can
+  now run in `InProcess` mode instead of polling. It reads the module's inbox once at startup, then
+  only when this process's `EventBus` delivers a message into it, so a persistent inbox (e.g. Azure
+  Storage Queue) costs no reads while the module is idle. Meant for modules hosted in the same
+  process as every module publishing to them (a modular monolith); keep `Polling` (the default, and
+  the behavior of `WithInboxProcessing(TimeSpan?)`) when other processes deliver into the inbox.
+  `InboxProcessingOptions.IdleSweep` optionally reads the inbox after that long without a delivery,
+  for messages that become readable again without one (e.g. after an interrupted processing attempt).
+  `ModuleBase.Inbox` now raises the module's delivery signal after each write.
 - `CommandResult.Errors`: every validation failure found when a validator rejected the command,
   filled by `CommandResultBehavior` from `MessageValidationException.Errors`, and
   `CommandResult.Failure(ResultCode, IReadOnlyList<ValidationError>)`.

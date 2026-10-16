@@ -16,6 +16,15 @@ Minor release: new features only, no breaking change.
   This happens when earlier attempts never completed, e.g. a message that crashes the process or
   whose handling outlasts the visibility timeout. A handler that throws still sends the message to
   the error queue on the first attempt, as before.
+- `WithInboxProcessing(InboxProcessingOptions)` and `InboxProcessingMode`: an inbox processor can
+  now run in `InProcess` mode instead of polling. It reads the module's inbox once at startup, then
+  only when this process's `EventBus` delivers a message into it, so a persistent inbox (e.g. Azure
+  Storage Queue) costs no reads while the module is idle. Meant for modules hosted in the same
+  process as every module publishing to them (a modular monolith); keep `Polling` (the default, and
+  the behavior of `WithInboxProcessing(TimeSpan?)`) when other processes deliver into the inbox.
+  `InboxProcessingOptions.IdleSweep` optionally reads the inbox after that long without a delivery,
+  for messages that become readable again without one (e.g. after an interrupted processing attempt).
+  `ModuleBase.Inbox` now raises the module's delivery signal after each write.
 
 ## [0.5.0] - 2026-10-07
 

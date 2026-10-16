@@ -1,12 +1,14 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Polochon.Abstractions.CQRS;
 using Polochon.Abstractions.Domain;
 using Polochon.Abstractions.Messaging;
 using Polochon.Abstractions.Modules;
 using Polochon.Logging;
 using Polochon.Mediation;
+using Polochon.Messaging;
 using Polochon.Security;
 using Polochon.Telemetry;
 
@@ -98,6 +100,26 @@ namespace Polochon.Modules
 
         /// <inheritdoc/>
         public IOutboxReader Outbox => GetRequiredService<IOutboxReader>();
+
+        /// <summary>
+        /// Reads this module's inbox until it is empty, handling every integration event exactly as
+        /// an <see cref="InboxProcessor"/> would - each in a DI scope of its own, as the system
+        /// identity, with failures routed to the module's <see cref="IErrorQueue"/> - then returns.
+        /// </summary>
+        /// <remarks>
+        /// The on-demand counterpart of <c>WithInboxProcessing</c>: for a module deployed on its own
+        /// and started by something outside the process when its inbox has messages (e.g. an Azure
+        /// Container Apps job scaled by KEDA on the inbox queue), instead of a background service
+        /// polling it. Call it once the module is initialized (after the host has started), and use
+        /// <c>DrainInboxAsync&lt;TModule&gt;()</c> on the host's services to also relay the
+        /// integration events those messages raised before the process exits. Does not throw when a
+        /// handler fails; check <see cref="InboxDrainResult.Failed"/> instead.
+        /// </remarks>
+        /// <param name="cancellationToken">Stops the drain between two messages; a message already being handled is finished.</param>
+        /// <returns>How many messages were read, and how many of them failed.</returns>
+        /// <exception cref="InvalidOperationException">The module has not been initialized.</exception>
+        public Task<InboxDrainResult> ProcessInboxAsync(CancellationToken cancellationToken = default)
+            => InboxDrainer.DrainAsync(this, GetRequiredService<ILogger<InboxProcessor>>(), cancellationToken);
 
         /// <summary>
         /// Configures the services for this module.

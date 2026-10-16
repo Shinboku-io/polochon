@@ -28,8 +28,13 @@ namespace Polochon.Messaging.AzureQueue
         /// <param name="queueClientProxy">Creates the proxy used to talk to the inbox and error queues.</param>
         /// <param name="options">The queue endpoint and names this inbox reads from and writes to.</param>
         /// <param name="logger">Logger, resolved through the standard Microsoft.Extensions.Logging pipeline.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="options"/> is <c>null</c>.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><see cref="PersistentInboxOptions.MaxDequeueCount"/> is less than 1.</exception>
         public AzureQueueInbox(IQueueClientProxyFactory queueClientProxy, PersistentInboxOptions options, ILogger<AzureQueueInbox> logger)
         {
+            ArgumentNullException.ThrowIfNull(options);
+            ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxDequeueCount, 1, nameof(options));
+
             this.queueClientProxy = queueClientProxy;
             this.options = options;
             this.logger = logger;
@@ -112,6 +117,13 @@ namespace Polochon.Messaging.AzureQueue
             {
                 foreach (var message in rawMessages.Value)
                 {
+                    if (message.DequeueCount > options.MaxDequeueCount)
+                    {
+                        await RejectPoisonMessageAsync(message, cancellationToken);
+                        _ = await queueClient.DeleteMessageAsync(message.MessageId, message.PopReceipt, cancellationToken);
+                        continue;
+                    }
+
                     var readContent = await TryDeserializeAsync(message, cancellationToken);
                     if (readContent != null)
                     {
@@ -159,6 +171,28 @@ namespace Polochon.Messaging.AzureQueue
                 await SendToErrorQueueAsync(messageType: "unknown", payload: message.Body.ToString(), ex, cancellationToken);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Routes a message received more than <see cref="PersistentInboxOptions.MaxDequeueCount"/>
+        /// times to the error queue, untouched: earlier attempts never completed, so handling it
+        /// again would most likely fail - or crash the process - the same way.
+        /// </summary>
+        private async ValueTask RejectPoisonMessageAsync(QueueMessage message, CancellationToken cancellationToken)
+        {
+            logger.LogWarning(
+                "Inbox message {MessageId} in queue {InboxQueueName} received {DequeueCount} times (max {MaxDequeueCount}): rejected as poison",
+                message.MessageId,
+                options.InboxQueueName,
+                message.DequeueCount,
+                options.MaxDequeueCount);
+
+            await SendToErrorQueueAsync(
+                messageType: "poison",
+                payload: message.Body.ToString(),
+                exception: new InvalidOperationException(
+                    $"Inbox message '{message.MessageId}' was received {message.DequeueCount} times, more than the {options.MaxDequeueCount} allowed: rejected as poison without being processed again."),
+                cancellationToken);
         }
 
         private async ValueTask SendToErrorQueueAsync(string messageType, string payload, Exception exception, CancellationToken cancellationToken)

@@ -135,5 +135,89 @@ namespace Polochon.Messaging.AzureQueue.Tests
             var errorProxy = factory.GetProxy(options.ErrorQueueName);
             Assert.Single(errorProxy.SentMessages);
         }
+
+        /// <summary>Puts a valid message for <paramref name="payload"/> back on the inbox queue as if already received <paramref name="dequeueCount"/> - 1 times.</summary>
+        private static async Task EnqueueRedeliveredAsync(AzureQueueInbox inbox, FakeQueueClientProxy inboxProxy, string payload, long dequeueCount)
+        {
+            await inbox.PublishMessageAsync(new TestIntegrationEvent(payload), CancellationToken.None);
+            var body = inboxProxy.SentMessages[^1];
+            _ = await inboxProxy.ClearMessagesAsync(CancellationToken.None);
+            inboxProxy.EnqueueRedelivered(body, dequeueCount);
+        }
+
+        /// <summary>Poison messages are rejected after five receptions by default.</summary>
+        [Fact(DisplayName = "Max dequeue count defaults to five")]
+        public void MaxDequeueCountDefaultsToFive()
+        {
+            Assert.Equal(5, new PersistentInboxOptions { QueueEndpoint = "e", InboxQueueName = "q" }.MaxDequeueCount);
+        }
+
+        /// <summary>A message received more often than allowed is rejected as poison: not handed out, deleted, and sent to the error queue.</summary>
+        [Fact(DisplayName = "A message received more than the max dequeue count is rejected as poison")]
+        public async Task MessageOverMaxDequeueCountIsRejectedAsPoison()
+        {
+            var (inbox, factory, options) = CreateInbox();
+            var inboxProxy = factory.GetProxy(options.InboxQueueName);
+            await EnqueueRedeliveredAsync(inbox, inboxProxy, "crashes-every-time", options.MaxDequeueCount + 1);
+
+            var read = await ReadAllAsync(inbox);
+
+            Assert.Empty(read);
+            Assert.Single(inboxProxy.DeletedMessageIds);
+            var sent = Assert.Single(factory.GetProxy(options.ErrorQueueName).SentMessages);
+            Assert.Contains("poison", sent, StringComparison.Ordinal);
+            Assert.Contains("crashes-every-time", sent, StringComparison.Ordinal);
+        }
+
+        /// <summary>A message received exactly the allowed number of times still gets its last attempt.</summary>
+        [Fact(DisplayName = "A message at the max dequeue count is still processed")]
+        public async Task MessageAtMaxDequeueCountIsProcessed()
+        {
+            var (inbox, factory, options) = CreateInbox();
+            var inboxProxy = factory.GetProxy(options.InboxQueueName);
+            await EnqueueRedeliveredAsync(inbox, inboxProxy, "last-chance", options.MaxDequeueCount);
+
+            var read = await ReadAllAsync(inbox);
+
+            var readBack = Assert.IsType<TestIntegrationEvent>(Assert.Single(read));
+            Assert.Equal("last-chance", readBack.Payload);
+            Assert.Empty(factory.GetProxy(options.ErrorQueueName).SentMessages);
+        }
+
+        /// <summary>A poison message does not stop the rest of the batch from being processed.</summary>
+        [Fact(DisplayName = "A poison message does not block the messages after it")]
+        public async Task PoisonMessageDoesNotBlockFollowingMessages()
+        {
+            var factory = new FakeQueueClientProxyFactory();
+            var options = new PersistentInboxOptions
+            {
+                QueueEndpoint = "https://fake.queue.core.windows.net",
+                InboxQueueName = "inbox",
+                ErrorQueueName = "errors",
+                MaxDequeueCount = 1,
+            };
+            var inbox = new AzureQueueInbox(factory, options, NullLogger<AzureQueueInbox>.Instance);
+            var inboxProxy = factory.GetProxy(options.InboxQueueName);
+
+            await EnqueueRedeliveredAsync(inbox, inboxProxy, "poison", 2);
+            await inbox.PublishMessageAsync(new TestIntegrationEvent("healthy"), CancellationToken.None);
+
+            var read = await ReadAllAsync(inbox);
+
+            var readBack = Assert.IsType<TestIntegrationEvent>(Assert.Single(read));
+            Assert.Equal("healthy", readBack.Payload);
+            Assert.Equal(2, inboxProxy.DeletedMessageIds.Count);
+            Assert.Single(factory.GetProxy(options.ErrorQueueName).SentMessages);
+        }
+
+        /// <summary>A max dequeue count below one would reject every message, so it is refused.</summary>
+        [Fact(DisplayName = "A max dequeue count below one is rejected")]
+        public void MaxDequeueCountBelowOneIsRejected()
+        {
+            var options = new PersistentInboxOptions { QueueEndpoint = "e", InboxQueueName = "q", MaxDequeueCount = 0 };
+
+            _ = Assert.Throws<ArgumentOutOfRangeException>(() => new AzureQueueInbox(new FakeQueueClientProxyFactory(), options, NullLogger<AzureQueueInbox>.Instance));
+            _ = Assert.Throws<ArgumentNullException>(() => new AzureQueueInbox(new FakeQueueClientProxyFactory(), null!, NullLogger<AzureQueueInbox>.Instance));
+        }
     }
 }

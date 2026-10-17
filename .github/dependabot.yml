@@ -1,0 +1,57 @@
+version: 2
+
+updates:
+  # Central package versions (Directory.Packages.props). Merging an update to master runs the Dependency
+  # release workflow, which publishes a patch of the packages that depend on it.
+  - package-ecosystem: nuget
+    directory: /
+    target-branch: master
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    commit-message:
+      prefix: deps
+    # A major update of a dependency can break consumers: it ships with a full release, done by hand.
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+    # Families released in lockstep move together, in one PR and one dependency release.
+    groups:
+      dotnet:
+        patterns:
+          - Microsoft.Extensions.*
+          - Microsoft.EntityFrameworkCore*
+      opentelemetry:
+        patterns:
+          - OpenTelemetry*
+      serilog:
+        patterns:
+          - Serilog*
+      # Not shipped in any package: no release.
+      build-and-test:
+        patterns:
+          - Microsoft.NET.Test.Sdk
+          - Microsoft.Testing.*
+          - xunit*
+          - Microsoft.CodeAnalysis.*
+          - StyleCop.Analyzers
+          - SonarAnalyzer.CSharp
+          - Microsoft.SourceLink.*
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: master
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns:
+          - "*"

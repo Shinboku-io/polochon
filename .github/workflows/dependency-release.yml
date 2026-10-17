@@ -1,0 +1,116 @@
+name: Dependency release
+
+# Publishes a patch of the packages whose NuGet dependencies moved since their last release (typically
+# after a Dependabot PR is merged), and only those: the other packages keep their published version.
+# The patch ships the code of the latest full release ('v*' tag) with master's central package versions,
+# see eng/release/New-DependencyRelease.ps1. Each released package gets a '<PackageId>/v<version>' tag
+# and a GitHub release holding its changelog.
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - Directory.Packages.props
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Plan, build, test and pack only, publish nothing (always the case outside master)
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+# Shared with the Release workflow: never two publications at once.
+concurrency:
+  group: nuget-publish
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release the packages whose dependencies moved
+    runs-on: ubuntu-latest
+
+    env:
+      PUBLISH: ${{ github.ref == 'refs/heads/master' && inputs.dry-run != true }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Plan
+        id: plan
+        shell: pwsh
+        run: ./eng/release/New-DependencyRelease.ps1 -WorkDirectory "$env:RUNNER_TEMP/dependency-release"
+
+      - name: Add plan to job summary
+        run: cat artifacts/dependency-release/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup .NET of the released code
+        if: steps.plan.outputs.released == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: ${{ steps.plan.outputs.build-tree }}/global.json
+
+      - name: Build, test and pack
+        if: steps.plan.outputs.released == 'true'
+        working-directory: ${{ steps.plan.outputs.build-tree }}
+        env:
+          VERSIONS: -p:CustomBeforeMicrosoftCommonProps=${{ steps.plan.outputs.versions-props }}
+          PLAN: ${{ steps.plan.outputs.plan }}
+        run: |
+          dotnet restore Shinboku.Polochon.slnx $VERSIONS
+          dotnet build Shinboku.Polochon.slnx --no-restore -c Release $VERSIONS
+          dotnet test --solution Shinboku.Polochon.slnx --no-build -c Release
+          jq -r '.packages[] | select(.newVersion) | .projectPath' "$PLAN" | while read -r project; do
+            dotnet pack "$project" --no-build -c Release $VERSIONS --output "$GITHUB_WORKSPACE/artifacts/nupkgs"
+          done
+
+      - name: Upload packages and release notes
+        if: steps.plan.outputs.released == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-release
+          path: |
+            artifacts/nupkgs
+            artifacts/dependency-release
+
+      - name: Push to NuGet
+        if: steps.plan.outputs.released == 'true' && env.PUBLISH == 'true'
+        run: >
+          dotnet nuget push "artifacts/nupkgs/*.nupkg"
+          --api-key ${{ secrets.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+
+      # After NuGet, so a failed push is retried by re-running the workflow: without the tags, the next
+      # plan computes the same versions and the same (deterministic) release commit.
+      - name: Push package tags
+        if: steps.plan.outputs.released == 'true' && env.PUBLISH == 'true'
+        env:
+          PLAN: ${{ steps.plan.outputs.plan }}
+          COMMIT: ${{ steps.plan.outputs.release-commit }}
+        run: |
+          mapfile -t refspecs < <(jq -r --arg commit "$COMMIT" '.packages[] | select(.tag) | "\($commit):refs/tags/\(.tag)"' "$PLAN")
+          git push --atomic origin "${refspecs[@]}"
+
+      - name: Create GitHub releases
+        if: steps.plan.outputs.released == 'true' && env.PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN: ${{ steps.plan.outputs.plan }}
+        run: |
+          jq -r '.packages[] | select(.tag) | [.tag, .packageId, .newVersion, .notes] | @tsv' "$PLAN" |
+            while IFS=$'\t' read -r tag id version notes; do
+              gh release create "$tag" --verify-tag --latest=false \
+                --title "$id $version" --notes-file "$notes" \
+                artifacts/nupkgs/"$id.$version".*nupkg
+            done

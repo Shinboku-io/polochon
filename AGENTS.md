@@ -93,7 +93,8 @@ This repository is part of a multi-repo workspace. Use workspace-level Taskfile.
 - **Version scheme**: Semantic Versioning 2.0.0
 - **Package ID pattern**: `Polochon[.Submodule]`
 - **CI/CD**: Automated package publishing on release tags
-- **Tag pattern**: `v<major>.<minor>.<patch>` (e.g., `v1.0.0`)
+- **Tag pattern**: `v<major>.<minor>.<patch>` (e.g., `v1.0.0`) for full releases,
+  `<PackageId>/v<major>.<minor>.<patch>` for dependency releases (see Dependency Releases)
 
 ## Development Environment
 
@@ -258,6 +259,23 @@ This repository is part of a **two-repository workspace** at `/workspaces/babelc
 3. Create and push git tag: `v<major>.<minor>.<patch>`
 4. CI/CD automatically builds and publishes packages
 5. Create GitHub release with release notes
+
+### Dependency Releases
+
+Dependabot (`.github/dependabot.yml`) opens PRs against `Directory.Packages.props`. Merging one to
+`master` runs `.github/workflows/dependency-release.yml`, which publishes a patch of **only** the packages
+whose NuGet dependencies moved; the others keep their published version.
+
+- **Code shipped**: the latest full release (`v<x.y.z>` tag) with master's central package versions, never
+  master's unreleased code. A dependency update that needs code changes waits for the next full release.
+- **Version**: the package's current version with the patch number bumped (`0.6.0` → `0.6.1`). Packages
+  referencing a released Polochon package are released too, so their dependency floor follows.
+- **Tags and changelog**: each released package gets a `<PackageId>/v<version>` tag and a GitHub release
+  whose notes list its dependency changes (also in the package's `<PackageReleaseNotes>`).
+- **Preview**: `pwsh eng/release/New-DependencyRelease.ps1` prints the plan locally, or run the workflow
+  manually (dry run by default).
+- **Full releases** must be newer than every `<PackageId>/v*` tag (checked by `release.yml`). Major
+  dependency updates are not proposed by Dependabot: do them by hand, in a full release.
 
 ### Version Bumping Rules
 

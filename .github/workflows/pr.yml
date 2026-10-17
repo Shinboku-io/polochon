@@ -16,10 +16,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
@@ -36,7 +36,7 @@ jobs:
           -- --coverage --coverage-output-format cobertura
 
       - name: Generate coverage report
-        uses: danielpalme/ReportGenerator-GitHub-Action@5.4.6
+        uses: danielpalme/ReportGenerator-GitHub-Action@5.5.11
         with:
           reports: artifacts/test-results/**/*.cobertura.xml
           targetdir: artifacts/coverage-report
@@ -48,13 +48,13 @@ jobs:
       # Dependabot and fork PRs get a read-only token: the job summary holds their coverage.
       - name: Comment coverage on PR
         if: github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: coverage
           path: artifacts/coverage-report/SummaryGithub.md
 
       - name: Upload HTML coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: artifacts/coverage-report

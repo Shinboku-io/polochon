@@ -1,0 +1,38 @@
+name: Delete closed PR branch
+
+# Deletes a PR's branch once the PR is closed, merged or not. pull_request_target runs in the base
+# repository's context, so the token can delete branches even for Dependabot PRs; no PR code is checked out.
+
+on:
+  pull_request_target:
+    types:
+      - closed
+
+permissions:
+  contents: write
+
+jobs:
+  delete-branch:
+    name: Delete the PR branch
+    # Fork branches live in the fork: not ours to delete.
+    if: >
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref != 'master' &&
+      github.event.pull_request.head.ref != 'main' &&
+      !startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Delete branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$BRANCH" 2> error.txt; then
+            echo "Deleted branch $BRANCH."
+          elif grep -q 'Reference does not exist' error.txt; then
+            echo "Branch $BRANCH was already deleted."
+          else
+            cat error.txt >&2
+            exit 1
+          fi

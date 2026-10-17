@@ -28,6 +28,18 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      # Dependency releases tag '<PackageId>/v<version>' (see dependency-release.yml): a full release must
+      # be newer than all of them, or NuGet would skip the packages they already published at that version.
+      - name: Check version is newer than dependency releases
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          newest=$(git ls-remote --tags --refs origin | sed -nE 's|.*refs/tags/[^/]+/v([0-9]+\.[0-9]+\.[0-9]+)$|\1|p' | sort -V | tail -n 1)
+          if [ -n "$newest" ] && [ "$(printf '%s\n%s\n' "$newest" "${VERSION%%-*}" | sort -V | tail -n 1)" = "$newest" ]; then
+            echo "Version $VERSION is not newer than $newest, already published by a dependency release." >&2
+            exit 1
+          fi
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:

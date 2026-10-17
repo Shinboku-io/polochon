@@ -47,7 +47,7 @@
     <PackageVersion Include="Microsoft.FeatureManagement" Version="4.8.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.AzureAppConfiguration" Version="8.6.0" />
     <!-- Validation -->
-    <PackageVersion Include="FluentValidation" Version="12.1.1" />
+    <PackageVersion Include="FluentValidation" Version="12.2.0" />
     <!-- Source Link -->
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
   </ItemGroup>

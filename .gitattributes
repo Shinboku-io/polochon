@@ -6,6 +6,11 @@
 # Shell scripts must keep LF to run on Linux.
 *.sh text eol=lf
 
+# YAML keeps LF: Dependabot cannot update GitHub Actions workflows checked out with CRLF
+# ("No files changed!" on every action).
+*.yml text eol=lf
+*.yaml text eol=lf
+
 # Binaries: never converted.
 *.png binary
 *.jpg binary

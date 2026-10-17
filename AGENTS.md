@@ -141,6 +141,9 @@ This repository is part of a multi-repo workspace. Use workspace-level Taskfile.
 - **Push policy**: 
   - Never push to protected branches without PR
   - Feature branches: `feat/<name>`, `fix/<name>`, `docs/<name>`
+- **Branch cleanup**: a PR's branch is deleted when the PR is closed, merged or not
+  (`.github/workflows/delete-closed-branch.yml`). Never reuse a branch whose PR was closed; protected
+  branches and fork branches are left alone.
 - **Force push**: Require explicit confirmation; prefer `--force-with-lease`
 - **Blast radius**: Changes here affect all consumers (including app repo)
 

@@ -36,7 +36,7 @@ jobs:
           -- --coverage --coverage-output-format cobertura
 
       - name: Generate coverage report
-        uses: danielpalme/ReportGenerator-GitHub-Action@5.5.11
+        uses: danielpalme/ReportGenerator-GitHub-Action@5.5.12
         with:
           reports: artifacts/test-results/**/*.cobertura.xml
           targetdir: artifacts/coverage-report

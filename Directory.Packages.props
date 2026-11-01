@@ -49,6 +49,6 @@
     <!-- Validation -->
     <PackageVersion Include="FluentValidation" Version="12.2.0" />
     <!-- Source Link -->
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.402" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.403" />
   </ItemGroup>
 </Project>

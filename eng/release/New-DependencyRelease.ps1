@@ -13,9 +13,10 @@
       1. checks out the latest full release tag in a git worktree (the build tree) and copies onto its
          Directory.Packages.props the versions the source ref sets for the packages it already lists, and its
          .github directory (GITHUB_TOKEN cannot push a commit whose workflows differ from the repository's);
-      2. evaluates every packable project under src/ there, and again at the commit its current version was
-         released from ('v<x.y.z>' or '<PackageId>/v<x.y.z>'), and compares their non-private package
-         dependencies;
+      2. evaluates every packable project under src/ there and compares its non-private package dependencies
+         with those of its current version: the newest one on nuget.org when it is at least the one of its
+         tags ('v<x.y.z>' or '<PackageId>/v<x.y.z>'), as consumers get that package even when its tags are
+         missing or wrong; otherwise the project evaluated at that tag;
       3. releases a package when one of them changed, or when a Polochon package it references is released
          (so its dependency floor moves too), at its current version with the patch number bumped;
       4. commits the build tree (deterministically, so a re-run yields the same commit) and writes into the
@@ -60,6 +61,7 @@ if (-not $OutputDirectory) {
 $fullReleaseTagPattern = '^v(?<version>\d+\.\d+\.\d+)$'
 $packageTagPattern = '^(?<id>[A-Za-z0-9_.-]+)/v(?<version>\d+\.\d+\.\d+)$'
 $centralPackagesFile = 'Directory.Packages.props'
+$nugetFlatContainer = 'https://api.nuget.org/v3-flatcontainer'
 
 function Invoke-Git {
     & git -C $repositoryRoot @args
@@ -127,6 +129,39 @@ function Get-ProjectDependencies([string] $projectPath) {
         Packages = $packages
         ProjectReferences = $projects
     }
+}
+
+# The newest stable version of a package on nuget.org, listed or not, with its NuGet dependencies other than
+# Polochon packages (those follow the project references), or $null when nuget.org has none.
+function Get-PublishedPackage([string] $packageId) {
+    $feed = "$nugetFlatContainer/$($packageId.ToLowerInvariant())"
+    $index = Invoke-RestMethod "$feed/index.json" -SkipHttpErrorCheck -StatusCodeVariable status
+    if ($status -eq 404) {
+        return $null
+    }
+
+    if ($status -ne 200) {
+        throw "nuget.org answered $status for the versions of $packageId."
+    }
+
+    $version = @(
+        $index.versions | Where-Object { $_ -match '^\d+\.\d+\.\d+$' } | ForEach-Object { [version]$_ } |
+            Sort-Object -Descending
+    )[0]
+    if ($null -eq $version) {
+        return $null
+    }
+
+    $id = $packageId.ToLowerInvariant()
+    [xml]$nuspec = (Invoke-WebRequest "$feed/$version/$id.nuspec").Content
+    $packages = [Collections.Generic.SortedDictionary[string, string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($dependency in $nuspec.SelectNodes("//*[local-name()='dependency']")) {
+        if ($dependency.id -notmatch '^Polochon(\.|$)') {
+            $packages[$dependency.id] = $dependency.version
+        }
+    }
+
+    return [pscustomobject]@{ Version = $version; Packages = $packages }
 }
 
 function Compare-Dependencies($released, $current) {
@@ -225,17 +260,31 @@ foreach ($project in Get-ChildItem (Join-Path $buildTree 'src') -Filter '*.cspro
     # The package's current version and the commit it was released from: the newest of the latest full
     # release and the package's own dependency releases.
     $release = @(@($packageReleases[$current.PackageId] ?? @()) + $baseRelease | Sort-Object Version -Descending)[0]
-    $released = Get-ProjectDependencies (Join-Path (Get-ReleaseTree $release.Tag) $projectPath)
+    $releasedFrom = $release.Tag
+    $currentVersion = $release.Version
+
+    # nuget.org is what consumers get: when it has that version or a newer one, its dependencies are the
+    # released ones and its version is taken, tag or not. A run that published but failed to push its tags,
+    # followed by a newer master, must not reuse that version: NuGet would keep the old package.
+    $published = Get-PublishedPackage $current.PackageId
+    if ($null -ne $published -and $published.Version -ge $release.Version) {
+        $releasedFrom = "nuget.org $($published.Version)"
+        $currentVersion = $published.Version
+        $releasedPackages = $published.Packages
+    }
+    else {
+        $releasedPackages = (Get-ProjectDependencies (Join-Path (Get-ReleaseTree $release.Tag) $projectPath)).Packages
+    }
 
     $changes = [Collections.Generic.List[object]]::new()
-    Compare-Dependencies $released.Packages $current.Packages | ForEach-Object { $changes.Add($_) }
+    Compare-Dependencies $releasedPackages $current.Packages | ForEach-Object { $changes.Add($_) }
 
     $packages[$project.BaseName] = [pscustomobject]@{
         Project = $project.BaseName
         ProjectPath = $projectPath
         PackageId = $current.PackageId
-        ReleasedFrom = $release.Tag
-        CurrentVersion = $release.Version
+        ReleasedFrom = $releasedFrom
+        CurrentVersion = $currentVersion
         NewVersion = $changes.Count -gt 0 ? (Step-Patch $release.Version) : $null
         ProjectReferences = $current.ProjectReferences
         Changes = $changes

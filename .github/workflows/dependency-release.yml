@@ -89,10 +89,12 @@ jobs:
           dotnet nuget push "artifacts/nupkgs/*.nupkg"
           --api-key ${{ secrets.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
-          --skip-duplicate
 
-      # After NuGet, so a failed push is retried by re-running the workflow: without the tags, the next
-      # plan computes the same versions and the same (deterministic) release commit.
+      # After NuGet, so a failed NuGet push is retried by re-running the workflow. The plan reads the
+      # versions and dependencies on nuget.org, so a package published without its tags is not released
+      # again under the same version (NuGet would keep the old package): only its tag and GitHub release
+      # are missing, and the next release moves past it. Without --skip-duplicate, a version already on
+      # NuGet fails the push instead of being skipped silently.
       - name: Push package tags
         if: steps.plan.outputs.released == 'true' && env.PUBLISH == 'true'
         env:

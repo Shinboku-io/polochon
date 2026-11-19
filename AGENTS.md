@@ -273,6 +273,9 @@ whose NuGet dependencies moved; the others keep their published version.
   master's unreleased code. A dependency update that needs code changes waits for the next full release.
 - **Version**: the package's current version with the patch number bumped (`0.6.0` → `0.6.1`). Packages
   referencing a released Polochon package are released too, so their dependency floor follows.
+- **Baseline**: the current version and its dependencies are read from nuget.org when it has the tagged
+  version or a newer one, so a package published without (or with wrong) tags is never re-released under
+  its version, which NuGet would silently keep.
 - **Tags and changelog**: each released package gets a `<PackageId>/v<version>` tag and a GitHub release
   whose notes list its dependency changes (also in the package's `<PackageReleaseNotes>`).
 - **Preview**: `pwsh eng/release/New-DependencyRelease.ps1` prints the plan locally, or run the workflow

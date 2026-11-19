@@ -51,4 +51,20 @@
     <!-- Source Link -->
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.404" />
   </ItemGroup>
+  <!--
+    Framework packages (Microsoft.Extensions.*, Microsoft.EntityFrameworkCore*, Microsoft.AspNetCore.*) of the
+    targeted .NET major version are published as a range: at least the version set above, below the next
+    major (e.g. [10.0.15, 11.0.0) on net10.0). A consumer can then take any later servicing release of the
+    framework (security fixes) without a Polochon release, while a move to the next .NET major is flagged
+    (NU1608) until a Polochon release targets it. The Version attribute above stays a plain version, the one
+    Dependabot updates, and restore still resolves that minimum.
+  -->
+  <PropertyGroup Condition="'$(TargetFramework)' != ''">
+    <FrameworkMajorVersion>$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)', 1))</FrameworkMajorVersion>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(FrameworkMajorVersion)' != ''">
+    <PackageVersion Update="@(PackageVersion)">
+      <Version Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(Identity)', '^Microsoft\.(Extensions\.|EntityFrameworkCore|AspNetCore\.)')) and $([System.String]::Copy('%(Version)').StartsWith('$(FrameworkMajorVersion).'))">[%(Version), $([MSBuild]::Add($(FrameworkMajorVersion), 1)).0.0)</Version>
+    </PackageVersion>
+  </ItemGroup>
 </Project>

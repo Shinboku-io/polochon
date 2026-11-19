@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The packages now depend on the .NET framework packages (`Microsoft.Extensions.*`,
+  `Microsoft.EntityFrameworkCore*`) through a range bounded by the next .NET major, e.g.
+  `[10.0.15, 11.0.0)` instead of `10.0.15`. Any later 10.x servicing release (security fixes) still
+  satisfies it; referencing an 11.x framework package with these packages raises NU1608.
+
 ## [0.6.0] - 2026-10-16
 
 Minor release: new features only, no breaking change.

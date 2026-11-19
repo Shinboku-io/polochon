@@ -207,8 +207,9 @@ foreach ($entry in (Get-CentralPackageVersions $buildPackagesContent).GetEnumera
 [IO.File]::WriteAllText($buildPackagesFile, $buildPackagesContent)
 
 # The release commit is pushed (as tags) with the workflow's GITHUB_TOKEN, which can never get the
-# 'workflows' permission: GitHub rejects the push when its workflow files differ from the repository's.
-# The build does not use .github, so the build tree takes the source ref's one.
+# 'workflows' permission: GitHub rejects the push when the commit's workflow files differ from the default
+# branch's or from its parent's. The build does not use .github, so the build tree takes the source ref's
+# one, and the release commit gets the source commit as parent (see below).
 git -C $buildTree rm -r --quiet --ignore-unmatch .github
 if (Invoke-Git ls-tree --name-only $sourceCommit .github) {
     git -C $buildTree checkout $sourceCommit -- .github
@@ -294,6 +295,9 @@ if ($releases.Count -gt 0) {
     }
 
     try {
+        # Parent: the source commit, not the release tag, so the commit changes no workflow (see above).
+        # The tree stays the release's code with the source ref's dependency versions and .github.
+        git -C $buildTree reset --quiet --soft $sourceCommit
         git -C $buildTree commit --quiet --allow-empty --no-verify --all --message $message
     }
     finally {

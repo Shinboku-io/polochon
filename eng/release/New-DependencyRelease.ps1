@@ -11,7 +11,8 @@
 
     The script:
       1. checks out the latest full release tag in a git worktree (the build tree) and copies onto its
-         Directory.Packages.props the versions the source ref sets for the packages it already lists;
+         Directory.Packages.props the versions the source ref sets for the packages it already lists, and its
+         .github directory (GITHUB_TOKEN cannot push a commit whose workflows differ from the repository's);
       2. evaluates every packable project under src/ there, and again at the commit its current version was
          released from ('v<x.y.z>' or '<PackageId>/v<x.y.z>'), and compares their non-private package
          dependencies;
@@ -204,6 +205,14 @@ foreach ($entry in (Get-CentralPackageVersions $buildPackagesContent).GetEnumera
 }
 
 [IO.File]::WriteAllText($buildPackagesFile, $buildPackagesContent)
+
+# The release commit is pushed (as tags) with the workflow's GITHUB_TOKEN, which can never get the
+# 'workflows' permission: GitHub rejects the push when its workflow files differ from the repository's.
+# The build does not use .github, so the build tree takes the source ref's one.
+git -C $buildTree rm -r --quiet --ignore-unmatch .github
+if (Invoke-Git ls-tree --name-only $sourceCommit .github) {
+    git -C $buildTree checkout $sourceCommit -- .github
+}
 
 # --- Which packages move ---------------------------------------------------------------------------------
 
